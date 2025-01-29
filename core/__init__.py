@@ -15,9 +15,10 @@
 """Core definitions for creating Elastic Pipes components."""
 
 import logging
+import os
 import sys
 
-from .errors import ConfigError
+from .errors import ConfigError, Error
 from .util import deserialize_yaml, get_field, serialize_yaml
 
 
@@ -33,6 +34,8 @@ def validate_logging_config(name, config):
 
 
 def get_pipes(state):
+    if not isinstance(state, dict):
+        raise ConfigError(f"invalid state: not a map: {state} ({type(state).__name__})")
     pipes = state.get("pipes", [])
     if not isinstance(pipes, list):
         raise ConfigError(f"invalid configuration: not a list: {pipes} ({type(pipes).__name__})")
@@ -168,11 +171,13 @@ class Pipe:
 
 
 def state_from_unix_pipe(logger, default):
-    import atexit
-
-    logger.debug("awaiting state")
-    with open("/dev/stdin") as f:
-        state = deserialize_yaml(f)
+    logger.debug("awaiting state from standard input")
+    if sys.stdin.isatty():
+        if os.name == "nt":
+            print("Press CTRL-Z and ENTER to end", file=sys.stderr)
+        else:
+            print("Press CTRL-D one time (or two, if you entered any input) to end", file=sys.stderr)
+    state = deserialize_yaml(sys.stdin)
 
     if state:
         logger.debug("got state")
@@ -183,13 +188,12 @@ def state_from_unix_pipe(logger, default):
         logger.debug("using default state")
         state = default
 
-    def _put():
-        logger.debug("relaying state")
-        with open("/dev/stdout", "w") as f:
-            serialize_yaml(f, state)
-
-    atexit.register(_put)
     return state
+
+
+def state_to_unix_pipe(logger, state):
+    logger.debug("relaying state to standard output")
+    serialize_yaml(sys.stdout, state)
 
 
 def wrap_standalone_pipe(pipe):
@@ -200,16 +204,24 @@ def wrap_standalone_pipe(pipe):
         handler = logging.StreamHandler()
         handler.setFormatter(logging.Formatter("%(name)s - %(message)s"))
         pipe.logger.addHandler(handler)
+        pipe.logger.setLevel(logging.DEBUG)
 
-        pipe.state = state_from_unix_pipe(pipe.logger, pipe.default)
+        try:
+            pipe.state = state_from_unix_pipe(pipe.logger, pipe.default)
+            pipes = get_pipes(pipe.state)
+        except Error as e:
+            print(e, file=sys.stderr)
+            sys.exit(1)
 
         pipe.__config__ = {}
-        for name, config in get_pipes(pipe.state):
+        for name, config in pipes:
             if pipe.name == name:
                 pipe.__config__ = config
                 break
 
-        return pipe.func(pipe, *args, **kwargs)
+        ret = pipe.func(pipe, *args, **kwargs)
+        state_to_unix_pipe(pipe.logger, pipe.state)
+        return ret
 
     return _func
 
