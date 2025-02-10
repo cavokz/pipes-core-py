@@ -114,7 +114,7 @@ class Kibana:
     def find_detection_engine_rules(self, count_max, enabled=None):
         count_max += 1
         url = f"{self.url}/api/detection_engine/rules/_find?per_page={count_max}"
-        if enabled:
+        if enabled is not None:
             url += f"&filter=alert.attributes.enabled:{str(enabled).lower()}"
         res = self.session.get(url)
         res.raise_for_status()
