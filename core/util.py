@@ -85,3 +85,8 @@ def deserialize_yaml(file):
         from yaml import Loader
 
     return yaml.load(file, Loader=Loader)
+
+
+def fatal(msg):
+    print(msg, file=sys.stderr)
+    sys.exit(1)
