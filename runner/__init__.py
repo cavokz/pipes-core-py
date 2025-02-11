@@ -103,9 +103,8 @@ if __name__ == "__main__":
     main()
 """
             )
-    except FileExistsError:
-        print(f"File already exists: '{pipe_file}'")
-        sys.exit(1)
+    except FileExistsError as e:
+        fatal(f"{e.strerror}: '{e.filename}'")
 
     # make it executable
     mode = pipe_file.stat().st_mode

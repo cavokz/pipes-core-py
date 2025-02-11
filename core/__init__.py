@@ -19,7 +19,7 @@ import os
 import sys
 
 from .errors import ConfigError, Error
-from .util import deserialize_yaml, get_field, serialize_yaml
+from .util import deserialize_yaml, fatal, get_field, serialize_yaml
 
 __version__ = "0.1.0"
 
@@ -212,8 +212,7 @@ def wrap_standalone_pipe(pipe):
             pipe.state = state_from_unix_pipe(pipe.logger, pipe.default)
             pipes = get_pipes(pipe.state)
         except Error as e:
-            print(e, file=sys.stderr)
-            sys.exit(1)
+            fatal(e)
 
         pipe.__config__ = {}
         for name, config in pipes:
