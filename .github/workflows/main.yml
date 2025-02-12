@@ -30,8 +30,16 @@ jobs:
         run: make lint
 
   test:
-    name: Code tests
-    runs-on: ubuntu-latest
+    name: Code tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["macos-latest", "ubuntu-latest", "windows-latest"]
+
+    env:
+      PYTHON: python
 
     steps:
       - name: Checkout code
@@ -48,4 +56,4 @@ jobs:
         run: make prereq
 
       - name: Run tests
-        run: make test
+        run: make test-ci

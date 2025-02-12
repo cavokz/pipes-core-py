@@ -1,3 +1,5 @@
+SHELL := bash
+
 ifneq ($(VENV),)
 	PYTHON ?= $(VENV)/bin/python3
 else
@@ -16,10 +18,13 @@ lint:
 
 test:
 	$(PYTHON) -m venv test-env
-	./test-env/bin/pip install .
-	./test-env/bin/elastic-pipes new -f test-env/bin/test-pipe
-	echo "test-result: ok" | ./test-env/bin/python3 test-env/bin/test-pipe.py | [ "`tee /dev/stderr`" = "test-result: ok" ]
-	echo "test-result: ok" | ./test-env/bin/elastic-pipes run test.yaml | [ "`tee /dev/stderr`" = "test-result: ok" ]
+	source test-env/bin/activate; $(MAKE) test-ci
+
+test-ci:
+	pip install .
+	elastic-pipes new -f test-pipe.py
+	echo "test-result: ok" | $(PYTHON) test-pipe.py | [ "`tee >(cat 1>&2)`" = "test-result: ok" ]
+	echo "test-result: ok" | elastic-pipes run test.yaml | [ "`tee >(cat 1>&2)`" = "test-result: ok" ]
 
 clean:
-	rm -rf test-env
+	rm -rf test-env test-pipe.py
