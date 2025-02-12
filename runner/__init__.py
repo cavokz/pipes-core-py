@@ -25,13 +25,6 @@ from ..core.util import fatal
 main = typer.Typer(pretty_exceptions_enable=False)
 
 
-def read_config(config_file):
-    import yaml
-
-    with open(config_file) as f:
-        return yaml.safe_load(f) or {}
-
-
 def setup_logging():
     import logging
 
@@ -48,23 +41,29 @@ def setup_logging():
 
 @main.command()
 def run(
-    config_file: Path,
+    config_file: typer.FileText,
     dry_run: Annotated[bool, typer.Option()] = False,
 ):
     """
     Run pipes
     """
+    import yaml
+
     from ..core import Pipe
     from ..core.errors import Error
 
     setup_logging()
 
     try:
-        state = read_config(config_file)
+        state = yaml.safe_load(config_file) or {}
     except FileNotFoundError as e:
         fatal(f"{e.strerror}: '{e.filename}'")
 
-    base_dir = str(config_file.parent.absolute())
+    if config_file.name == "<stdin>":
+        base_dir = Path.cwd()
+    else:
+        base_dir = Path(config_file.name).parent
+    base_dir = str(base_dir.absolute())
     if base_dir not in sys.path:
         sys.path.append(base_dir)
 
@@ -95,9 +94,11 @@ def new(
 
 from elastic.pipes.core import Pipe
 
+
 @Pipe("{pipe_file.stem}", default={{}})
 def main(pipe, dry_run=False):
     pipe.logger.info("Hello, world!")
+
 
 if __name__ == "__main__":
     main()

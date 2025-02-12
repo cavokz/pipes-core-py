@@ -30,9 +30,9 @@ def main(pipe, dry_run=False):
 
     if file_name:
         with open(file_name, "r") as f:
-            value = deserialize_yaml(f)
+            value = deserialize_yaml(f) or {}
     else:
-        value = deserialize_yaml(sys.stdin)
+        value = deserialize_yaml(sys.stdin) or {}
 
     msg_field = f"'{field}'" if field not in (None, "", ".") else "everything"
     msg_file_name = f"'{file_name}'" if file_name else "standard input"
