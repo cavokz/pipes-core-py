@@ -1,0 +1,6 @@
+pipes:
+  - elastic.pipes:
+      logging:
+        level: debug
+  - elastic.pipes.core.import:
+  - elastic.pipes.core.export:

@@ -14,23 +14,27 @@
 
 """Elastic Pipes component to export data from the Pipes state."""
 
+import sys
+
 from . import Pipe
 from .util import get_field, serialize_yaml
 
 
 @Pipe("elastic.pipes.core.export")
 def main(pipe, dry_run=False):
-    file_name = pipe.config("file")
+    file_name = pipe.config("file", None)
     field = pipe.config("field", None)
 
     if dry_run:
         return
 
-    if field in (None, "", "."):
-        pipe.logger.info(f"exporting everything to '{file_name}'...")
-    else:
-        pipe.logger.info(f"exporting '{field}' to '{file_name}'...")
+    msg_field = f"'{field}'" if field not in (None, "", ".") else "everything"
+    msg_file_name = f"'{file_name}'" if file_name else "standard output"
+    pipe.logger.info(f"exporting {msg_field} to {msg_file_name}...")
     value = get_field(pipe.state, field)
 
-    with open(file_name, "w") as f:
-        serialize_yaml(f, value)
+    if file_name:
+        with open(file_name, "w") as f:
+            serialize_yaml(f, value)
+    else:
+        serialize_yaml(sys.stdout, value)

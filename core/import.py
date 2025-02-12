@@ -14,23 +14,27 @@
 
 """Elastic Pipes component to import data into the Pipes state."""
 
+import sys
+
 from . import Pipe
 from .util import deserialize_yaml, set_field
 
 
 @Pipe("elastic.pipes.core.import")
 def main(pipe, dry_run=False):
-    file_name = pipe.config("file")
+    file_name = pipe.config("file", None)
     field = pipe.config("field", None)
 
     if dry_run:
         return
 
-    with open(file_name, "r") as f:
-        value = deserialize_yaml(f)
-
-    if field in (None, "", "."):
-        pipe.logger.info(f"importing everything from '{file_name}'...")
+    if file_name:
+        with open(file_name, "r") as f:
+            value = deserialize_yaml(f)
     else:
-        pipe.logger.info(f"importing '{field}' from '{file_name}'...")
+        value = deserialize_yaml(sys.stdin)
+
+    msg_field = f"'{field}'" if field not in (None, "", ".") else "everything"
+    msg_file_name = f"'{file_name}'" if file_name else "standard input"
+    pipe.logger.info(f"importing {msg_field} from {msg_file_name}...")
     set_field(pipe.state, field, value)
