@@ -53,7 +53,7 @@ def get_pipes(state):
     return configs
 
 
-def __sync_logger_config__(pipe):
+def _sync_logger_config(pipe):
     elastic_pipes_logger = logging.getLogger("elastic.pipes")
     if pipe.logger == elastic_pipes_logger:
         return
@@ -112,7 +112,7 @@ class Pipe:
             pipe = cls.__pipes__[name]
             pipe.__config__ = config
             pipe.state = state
-            __sync_logger_config__(pipe)
+            _sync_logger_config(pipe)
             sig = signature(pipe.func)
             if "dry_run" in sig.parameters:
                 if dry_run:
