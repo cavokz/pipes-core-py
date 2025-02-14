@@ -25,8 +25,8 @@ test-ci:
 	elastic-pipes version
 	elastic-pipes new-pipe -f test-pipe.py
 	echo "test-result: ok" | $(PYTHON) test-pipe.py | [ "`tee >(cat 1>&2)`" = "test-result: ok" ]
-	echo "test-result: ok" | elastic-pipes run test.yaml | [ "`tee >(cat 1>&2)`" = "test-result: ok" ]
-	cat test.yaml | elastic-pipes run - | [ "`tee >(cat 1>&2)`" = "{}" ]
+	echo "test-result: ok" | elastic-pipes run --log-level=debug test.yaml | [ "`tee >(cat 1>&2)`" = "test-result: ok" ]
+	cat test.yaml | elastic-pipes run --log-level=debug - | [ "`tee >(cat 1>&2)`" = "{}" ]
 
 clean:
 	rm -rf test-env test-pipe.py

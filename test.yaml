@@ -1,3 +1,5 @@
+#!/usr/bin/env elastic-pipes run
+
 pipes:
   - elastic.pipes:
       minimum-version: 0.1.0

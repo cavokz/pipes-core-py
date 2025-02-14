@@ -20,13 +20,12 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
-from ..core import __version__
-from ..core.util import fatal
+from ..core.util import fatal, warn_interactive
 
 main = typer.Typer(pretty_exceptions_enable=False)
 
 
-def setup_logging():
+def setup_logging(log_level):
     import logging
 
     # a single handler to rule them all
@@ -36,14 +35,21 @@ def setup_logging():
     logger = logging.getLogger("elastic.pipes")
     # all the pipes sync their handlers with this
     logger.addHandler(handler)
+
     # all the pipes sync their log level with this, unless configured differently
-    logger.setLevel(logging.INFO)
+    if log_level is None:
+        logger.setLevel(logging.INFO)
+    else:
+        logger.setLevel(log_level.upper())
+        logger.info("log level is overridden by the command line")
+        logger.overridden = True
 
 
 @main.command()
 def run(
     config_file: typer.FileText,
     dry_run: Annotated[bool, typer.Option()] = False,
+    log_level: Annotated[str, typer.Option(callback=setup_logging)] = None,
 ):
     """
     Run pipes
@@ -53,9 +59,8 @@ def run(
     from ..core import Pipe
     from ..core.errors import Error
 
-    setup_logging()
-
     try:
+        warn_interactive(config_file)
         state = yaml.safe_load(config_file) or {}
     except FileNotFoundError as e:
         fatal(f"{e.strerror}: '{e.filename}'")
@@ -118,4 +123,6 @@ def version():
     """
     Print the version
     """
+    from ..core import __version__
+
     print(__version__)

@@ -15,11 +15,10 @@
 """Core definitions for creating Elastic Pipes components."""
 
 import logging
-import os
 import sys
 
 from .errors import ConfigError, Error
-from .util import deserialize_yaml, fatal, get_field, serialize_yaml
+from .util import deserialize_yaml, fatal, get_field, serialize_yaml, warn_interactive
 
 __version__ = "0.2.0-dev"
 
@@ -54,7 +53,7 @@ def get_pipes(state):
     return configs
 
 
-def __sync_logger_config__(pipe):
+def _sync_logger_config(pipe):
     elastic_pipes_logger = logging.getLogger("elastic.pipes")
     if pipe.logger == elastic_pipes_logger:
         return
@@ -63,7 +62,7 @@ def __sync_logger_config__(pipe):
     for handler in elastic_pipes_logger.handlers:
         pipe.logger.addHandler(handler)
     level = pipe.config("logging.level", None)
-    if level is None:
+    if level is None or getattr(elastic_pipes_logger, "overridden", False):
         pipe.logger.setLevel(elastic_pipes_logger.level)
     else:
         pipe.logger.setLevel(level.upper())
@@ -113,7 +112,7 @@ class Pipe:
             pipe = cls.__pipes__[name]
             pipe.__config__ = config
             pipe.state = state
-            __sync_logger_config__(pipe)
+            _sync_logger_config(pipe)
             sig = signature(pipe.func)
             if "dry_run" in sig.parameters:
                 if dry_run:
@@ -174,11 +173,7 @@ class Pipe:
 
 def state_from_unix_pipe(logger, default):
     logger.debug("awaiting state from standard input")
-    if sys.stdin.isatty():
-        if os.name == "nt":
-            print("Press CTRL-Z and ENTER to end", file=sys.stderr)
-        else:
-            print("Press CTRL-D one time (or two, if you entered any input) to end", file=sys.stderr)
+    warn_interactive(sys.stdin)
     state = deserialize_yaml(sys.stdin)
 
     if state:
@@ -231,7 +226,7 @@ def wrap_standalone_pipe(pipe):
 def elastic_pipes(pipe, dry_run=False):
     min_version = pipe.config("minimum-version", None)
     level = pipe.config("logging.level", None)
-    if level is not None:
+    if level is not None and not getattr(pipe.logger, "overridden", False):
         pipe.logger.setLevel(level.upper())
     if min_version is not None:
         from semver import VersionInfo

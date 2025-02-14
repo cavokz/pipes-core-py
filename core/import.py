@@ -17,7 +17,7 @@
 import sys
 
 from . import Pipe
-from .util import deserialize_yaml, set_field
+from .util import deserialize_yaml, set_field, warn_interactive
 
 
 @Pipe("elastic.pipes.core.import")
@@ -30,8 +30,10 @@ def main(pipe, dry_run=False):
 
     if file_name:
         with open(file_name, "r") as f:
+            warn_interactive(f)
             value = deserialize_yaml(f) or {}
     else:
+        warn_interactive(sys.stdin)
         value = deserialize_yaml(sys.stdin) or {}
 
     msg_field = f"'{field}'" if field not in (None, "", ".") else "everything"

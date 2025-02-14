@@ -14,6 +14,7 @@
 
 """Helper functions for the Elastic Pipes implementation."""
 
+import os
 import sys
 
 from .errors import Error
@@ -90,3 +91,11 @@ def deserialize_yaml(file):
 def fatal(msg):
     print(msg, file=sys.stderr)
     sys.exit(1)
+
+
+def warn_interactive(f):
+    if f.isatty():
+        if os.name == "nt":
+            print("Press CTRL-Z and ENTER to end", file=sys.stderr)
+        else:
+            print("Press CTRL-D one time (or two, if you entered any input) to end", file=sys.stderr)
