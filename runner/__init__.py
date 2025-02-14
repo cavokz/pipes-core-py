@@ -20,7 +20,6 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated
 
-from ..core import __version__
 from ..core.util import fatal, warn_interactive
 
 main = typer.Typer(pretty_exceptions_enable=False)
@@ -119,4 +118,6 @@ def version():
     """
     Print the version
     """
+    from ..core import __version__
+
     print(__version__)
