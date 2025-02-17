@@ -15,9 +15,10 @@
 """Elastic Pipes component to import data into the Pipes state."""
 
 import sys
+from pathlib import Path
 
 from . import Pipe
-from .util import deserialize_yaml, fatal, set_field, warn_interactive
+from .util import deserialize, fatal, set_field, warn_interactive
 
 
 @Pipe("elastic.pipes.core.import")
@@ -25,12 +26,21 @@ def main(pipe, dry_run=False):
     file_name = pipe.config("file", None)
     field = pipe.config("field", None)
     interactive = pipe.config("interactive", False)
+    format = pipe.config("format", None)
 
-    if dry_run:
-        return
+    if format is None:
+        if file_name:
+            format = Path(file_name).suffix.lower()[1:]
+            pipe.logger.debug(f"import file format guessed from file extension: {format}")
+        else:
+            format = "yaml"
+            pipe.logger.debug(f"assuming import file format: {format}")
 
     if not file_name and sys.stdin.isatty() and not interactive:
         fatal("To use `elastic.pipes.core.import` interactively, set `interactive: true` in its configuration.")
+
+    if dry_run:
+        return
 
     msg_field = f"'{field}'" if field not in (None, "", ".") else "everything"
     msg_file_name = f"'{file_name}'" if file_name else "standard input"
@@ -39,9 +49,9 @@ def main(pipe, dry_run=False):
     if file_name:
         with open(file_name, "r") as f:
             warn_interactive(f)
-            value = deserialize_yaml(f) or {}
+            value = deserialize(f, format=format) or {}
     else:
         warn_interactive(sys.stdin)
-        value = deserialize_yaml(sys.stdin) or {}
+        value = deserialize(sys.stdin, format=format) or {}
 
     set_field(pipe.state, field, value)

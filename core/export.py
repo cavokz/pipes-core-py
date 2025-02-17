@@ -15,15 +15,25 @@
 """Elastic Pipes component to export data from the Pipes state."""
 
 import sys
+from pathlib import Path
 
 from . import Pipe
-from .util import get_field, serialize_yaml
+from .util import get_field, serialize
 
 
 @Pipe("elastic.pipes.core.export")
 def main(pipe, dry_run=False):
     file_name = pipe.config("file", None)
     field = pipe.config("field", None)
+    format = pipe.config("format", None)
+
+    if format is None:
+        if file_name:
+            format = Path(file_name).suffix.lower()[1:]
+            pipe.logger.debug(f"export file format guessed from file extension: {format}")
+        else:
+            format = "yaml"
+            pipe.logger.debug(f"assuming export file format: {format}")
 
     if dry_run:
         return
@@ -35,6 +45,6 @@ def main(pipe, dry_run=False):
 
     if file_name:
         with open(file_name, "w") as f:
-            serialize_yaml(f, value)
+            serialize(f, value, format=format)
     else:
-        serialize_yaml(sys.stdout, value)
+        serialize(sys.stdout, value, format=format)

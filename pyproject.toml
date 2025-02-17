@@ -45,12 +45,12 @@ packages = ["elastic.pipes.core", "elastic.pipes.runner"]
 [tool.black]
 line-length = 140
 target-version = ["py38"]
-exclude = "test-env"
+exclude = "test/venv"
 
 [tool.isort]
 profile = 'black'
-skip = ["test-env"]
+skip = ["test/venv"]
 
 [tool.ruff]
 line-length = 140
-exclude = ["test-env"]
+exclude = ["test/venv"]

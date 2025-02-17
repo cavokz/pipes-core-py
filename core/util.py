@@ -17,7 +17,7 @@
 import os
 import sys
 
-from .errors import Error
+from .errors import ConfigError, Error
 
 if sys.version_info >= (3, 12):
     from itertools import batched
@@ -86,6 +86,54 @@ def deserialize_yaml(file):
         from yaml import Loader
 
     return yaml.load(file, Loader=Loader)
+
+
+def serialize_json(file, state):
+    import json
+
+    file.write(json.dumps(state) + "\n")
+
+
+def deserialize_json(file):
+    import json
+
+    return json.load(file)
+
+
+def serialize_ndjson(file, state):
+    import json
+
+    for elem in state:
+        file.write(json.dumps(elem) + "\n")
+
+
+def deserialize_ndjson(file):
+    import json
+
+    return [json.loads(line) for line in file]
+
+
+def serialize(file, state, *, format):
+    if format in ("yaml", "yml"):
+        serialize_yaml(file, state)
+    elif format == "json":
+        serialize_json(file, state)
+    elif format == "ndjson":
+        serialize_ndjson(file, state)
+    else:
+        raise ConfigError(f"unsupported format: {format}")
+
+
+def deserialize(file, *, format):
+    if format in ("yaml", "yml"):
+        state = deserialize_yaml(file)
+    elif format == "json":
+        state = deserialize_json(file)
+    elif format == "ndjson":
+        state = deserialize_ndjson(file)
+    else:
+        raise ConfigError(f"unsupported format: {format}")
+    return state
 
 
 def fatal(msg):
