@@ -17,8 +17,8 @@
 import logging
 import sys
 
-from .errors import ConfigError, Error
-from .util import deserialize_yaml, fatal, get_field, serialize_yaml, warn_interactive
+from .errors import ConfigError
+from .util import get_field
 
 __version__ = "0.2.0-dev"
 
@@ -80,13 +80,17 @@ class Pipe:
         self.logger.propagate = False
 
     def __call__(self, func):
+        from functools import partial
+
+        from ..runner.standalone import run
+
         if self.name in self.__pipes__:
             module = self.__pipes__[self.name].func.__module__
             raise ConfigError(f"pipe '{self.name}' is already defined in module '{module}'")
 
         self.__pipes__[self.name] = self
         self.func = func
-        return wrap_standalone_pipe(self)
+        return partial(run, self)
 
     @classmethod
     def run(cls, state, *, dry_run=False):
@@ -169,57 +173,6 @@ class Pipe:
         elif username:
             args["basic_auth"] = (username, password)
         return Kibana(**args)
-
-
-def state_from_unix_pipe(logger, default):
-    logger.debug("awaiting state from standard input")
-    warn_interactive(sys.stdin)
-    state = deserialize_yaml(sys.stdin)
-
-    if state:
-        logger.debug("got state")
-    elif default is sys.exit:
-        logger.debug("no state, exiting")
-        sys.exit(1)
-    else:
-        logger.debug("using default state")
-        state = default
-
-    return state
-
-
-def state_to_unix_pipe(logger, state):
-    logger.debug("relaying state to standard output")
-    serialize_yaml(sys.stdout, state)
-
-
-def wrap_standalone_pipe(pipe):
-    from functools import wraps
-
-    @wraps(pipe.func)
-    def _func(*args, **kwargs):
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(name)s - %(message)s"))
-        pipe.logger.addHandler(handler)
-        pipe.logger.setLevel(logging.DEBUG)
-
-        try:
-            pipe.state = state_from_unix_pipe(pipe.logger, pipe.default)
-            pipes = get_pipes(pipe.state)
-        except Error as e:
-            fatal(e)
-
-        pipe.__config__ = {}
-        for name, config in pipes:
-            if pipe.name == name:
-                pipe.__config__ = config
-                break
-
-        ret = pipe.func(pipe, *args, **kwargs)
-        state_to_unix_pipe(pipe.logger, pipe.state)
-        return ret
-
-    return _func
 
 
 @Pipe("elastic.pipes")

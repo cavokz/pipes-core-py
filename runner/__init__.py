@@ -54,14 +54,13 @@ def run(
     """
     Run pipes
     """
-    import yaml
-
     from ..core import Pipe
     from ..core.errors import Error
+    from ..core.util import deserialize_yaml
 
     try:
         warn_interactive(config_file)
-        state = yaml.safe_load(config_file) or {}
+        state = deserialize_yaml(config_file) or {}
     except FileNotFoundError as e:
         fatal(f"{e.strerror}: '{e.filename}'")
 

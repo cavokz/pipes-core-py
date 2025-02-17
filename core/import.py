@@ -17,16 +17,24 @@
 import sys
 
 from . import Pipe
-from .util import deserialize_yaml, set_field, warn_interactive
+from .util import deserialize_yaml, fatal, set_field, warn_interactive
 
 
 @Pipe("elastic.pipes.core.import")
 def main(pipe, dry_run=False):
     file_name = pipe.config("file", None)
     field = pipe.config("field", None)
+    interactive = pipe.config("interactive", False)
 
     if dry_run:
         return
+
+    if not file_name and sys.stdin.isatty() and not interactive:
+        fatal("To use `elastic.pipes.core.import` interactively, set `interactive: true` in its configuration.")
+
+    msg_field = f"'{field}'" if field not in (None, "", ".") else "everything"
+    msg_file_name = f"'{file_name}'" if file_name else "standard input"
+    pipe.logger.info(f"importing {msg_field} from {msg_file_name}...")
 
     if file_name:
         with open(file_name, "r") as f:
@@ -36,7 +44,4 @@ def main(pipe, dry_run=False):
         warn_interactive(sys.stdin)
         value = deserialize_yaml(sys.stdin) or {}
 
-    msg_field = f"'{field}'" if field not in (None, "", ".") else "everything"
-    msg_file_name = f"'{file_name}'" if file_name else "standard input"
-    pipe.logger.info(f"importing {msg_field} from {msg_file_name}...")
     set_field(pipe.state, field, value)
