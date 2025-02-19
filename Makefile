@@ -56,6 +56,7 @@ pkg-test:
 	elastic-pipes run --log-level=debug test/hello-arg.yaml --explain
 	elastic-pipes run --log-level=debug test/hello-env.yaml --explain
 	elastic-pipes run --log-level=debug test/test.yaml --explain
+	elastic-pipes run --log-level=debug test/timestamp-rewrite.yaml
 	echo "test-result: ok" | elastic-pipes run --log-level=debug test/test.yaml | [ "`$(TEE_STDERR)`" = "test-result: ok" ]
 	cat test/test.yaml | elastic-pipes run --log-level=debug - | [ "`$(TEE_STDERR)`" = "{}" ]
 	@$(foreach SRC,$(FORMATS), \

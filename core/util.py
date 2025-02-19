@@ -17,6 +17,7 @@
 import os
 import sys
 from collections.abc import Mapping
+from datetime import datetime, timezone
 
 from typing_extensions import NoDefault, get_args
 
@@ -359,3 +360,34 @@ def walk_args_env(pipes, args_env):
     prefix_len = len(prefix)
     for _, _, _, _, _, _type, _, name in walk_config_nodes(pipes, prefix):
         yield name[prefix_len:], _type
+
+
+def parse_timestamp(ts):
+    ts = str(ts).strip()
+
+    try:
+        if ts.endswith("Z"):
+            ts = ts[:-1] + "+00:00"
+        return datetime.fromisoformat(ts)
+    except ValueError:
+        pass
+
+    formats = [
+        "%Y-%m-%dT%H:%M:%S.%fZ",  # 2023-01-01T12:00:00.123456Z
+        "%Y-%m-%dT%H:%M:%S.%f",  # 2023-01-01T12:00:00.123456
+        "%Y-%m-%dT%H:%M:%SZ",  # 2023-01-01T12:00:00Z
+        "%Y-%m-%dT%H:%M:%S",  # 2023-01-01T12:00:00
+        "%Y-%m-%dT%H:%M:%S.%f%z",  # 2023-01-01T12:00:00.123456+05:00
+        "%Y-%m-%dT%H:%M:%S%z",  # 2023-01-01T12:00:00+05:00
+    ]
+
+    for fmt in formats:
+        try:
+            parsed = datetime.strptime(ts, fmt)
+        except ValueError:
+            continue
+        if parsed.tzinfo is None and not fmt.endswith("%z"):
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
+
+    raise ValueError(f"unable to parse timestamp '{ts}'")

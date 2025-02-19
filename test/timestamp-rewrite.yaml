@@ -1,0 +1,16 @@
+#!/usr/bin/env elastic-pipes run
+
+pipes:
+  - elastic.pipes:
+      logging:
+        level: debug
+  - elastic.pipes.core.import:
+      file: test/docs.ndjson
+      node@: documents
+  - elastic.pipes.core.timestamp-rewrite:
+      strategy-name: now-first
+  - elastic.pipes.core.export:
+      node@: documents
+      format: ndjson
+
+documents: {}

@@ -13,11 +13,14 @@
 # limitations under the License.
 
 import re
+from datetime import datetime
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from core.errors import Error
-from core.util import get_node, has_node, set_node, split_path
+from core.util import get_node, has_node, parse_timestamp, set_node, split_path
 
 
 def test_split_path():
@@ -123,3 +126,8 @@ def test_set_node():
     msg = re.escape("not an object: None (type is NoneType)")
     with pytest.raises(Error, match=msg):
         set_node(None, None, None)
+
+
+@given(timestamp=st.datetimes(min_value=datetime(1970, 1, 1), max_value=datetime(2050, 1, 1)))
+def test_parse_timestamp(timestamp):
+    _ = parse_timestamp(timestamp.isoformat())
