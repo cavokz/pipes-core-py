@@ -23,6 +23,7 @@ from .util import get_field, serialize
 
 @Pipe("elastic.pipes.core.export")
 def main(pipe, dry_run=False):
+    base_dir = Path(get_field(pipe.state, "runtime.base-dir", Path.cwd()))
     file_name = pipe.config("file", None)
     field = pipe.config("field", None)
     format = pipe.config("format", None)
@@ -44,7 +45,7 @@ def main(pipe, dry_run=False):
     value = get_field(pipe.state, field)
 
     if file_name:
-        with open(file_name, "w") as f:
+        with open(base_dir / file_name, "w") as f:
             serialize(f, value, format=format)
     else:
         serialize(sys.stdout, value, format=format)

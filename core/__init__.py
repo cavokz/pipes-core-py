@@ -18,17 +18,13 @@ import logging
 import sys
 
 from .errors import ConfigError
-from .util import get_field
+from .util import __no_default__, get_field
 
 __version__ = "0.2.0-dev"
 
 
-class __no_default__:
-    pass
-
-
 def validate_logging_config(name, config):
-    if level := get_field(config, "logging.level"):
+    if level := get_field(config, "logging.level", None):
         level_nr = getattr(logging, level.upper(), None)
         if not isinstance(level_nr, int):
             raise ConfigError(f"invalid configuration: pipe '{name}': field 'logging.level': value '{level}'")
@@ -133,17 +129,12 @@ class Pipe:
             del pipe.__config__
 
     def config(self, flag, default=__no_default__):
-        value = get_field(self.__config__, flag)
-        if value is not None:
-            return value
-        if default is __no_default__:
-            raise KeyError(flag)
-        return default
+        return get_field(self.__config__, flag, default)
 
     def get_es(self):
         from elasticsearch import Elasticsearch
 
-        shell_expand = get_field(self.state, "stack.shell-expand")
+        shell_expand = get_field(self.state, "stack.shell-expand", False)
         api_key = get_field(self.state, "stack.credentials.api-key", shell_expand=shell_expand)
         username = get_field(self.state, "stack.credentials.username", shell_expand=shell_expand)
         password = get_field(self.state, "stack.credentials.password", shell_expand=shell_expand)
@@ -160,7 +151,7 @@ class Pipe:
     def get_kb(self):
         from .kibana import Kibana
 
-        shell_expand = get_field(self.state, "stack.shell-expand")
+        shell_expand = get_field(self.state, "stack.shell-expand", False)
         api_key = get_field(self.state, "stack.credentials.api-key", shell_expand=shell_expand)
         username = get_field(self.state, "stack.credentials.username", shell_expand=shell_expand)
         password = get_field(self.state, "stack.credentials.password", shell_expand=shell_expand)

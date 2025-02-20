@@ -19,6 +19,11 @@ import sys
 
 from .errors import ConfigError, Error
 
+
+class __no_default__:
+    pass
+
+
 if sys.version_info >= (3, 12):
     from itertools import batched
 else:
@@ -30,7 +35,7 @@ else:
             yield chunk
 
 
-def get_field(dict, path, *, shell_expand=False):
+def get_field(dict, path, default=__no_default__, *, shell_expand=False):
     if path in (None, "", "."):
         return dict
     keys = path.split(".")
@@ -39,10 +44,14 @@ def get_field(dict, path, *, shell_expand=False):
     try:
         for key in keys:
             if dict is None:
-                break
+                if default == __no_default__:
+                    raise KeyError(path)
+                return default
             dict = dict[key]
     except KeyError:
-        return None
+        if default == __no_default__:
+            raise KeyError(path)
+        return default
 
     if shell_expand:
         from .shelllib import shell_expand

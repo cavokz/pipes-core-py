@@ -18,11 +18,12 @@ import sys
 from pathlib import Path
 
 from . import Pipe
-from .util import deserialize, fatal, set_field, warn_interactive
+from .util import deserialize, fatal, get_field, set_field, warn_interactive
 
 
 @Pipe("elastic.pipes.core.import")
 def main(pipe, dry_run=False):
+    base_dir = Path(get_field(pipe.state, "runtime.base-dir", Path.cwd()))
     file_name = pipe.config("file", None)
     field = pipe.config("field", None)
     interactive = pipe.config("interactive", False)
@@ -47,7 +48,7 @@ def main(pipe, dry_run=False):
     pipe.logger.info(f"importing {msg_field} from {msg_file_name}...")
 
     if file_name:
-        with open(file_name, "r") as f:
+        with open(base_dir / file_name, "r") as f:
             warn_interactive(f)
             value = deserialize(f, format=format) or {}
     else:
