@@ -102,9 +102,15 @@ class Pipe:
                 if isinstance(ann, self.Node):
                     ann_name = ann.__class__.__name__.lower()
                     root = locals()[ann_name]
+                    node = ann.node
+                    indirect = getattr(ann, "indirect", False)
+                    if indirect:
+                        if indirect is True:
+                            indirect = node
+                        node = get_field(config, indirect, None) or node
                     try:
-                        logger.debug(f"  pass {ann_name} node '{ann.node}' as variable '{name}'")
-                        value = get_field(root, ann.node)
+                        logger.debug(f"  pass {ann_name} node '{node}' as variable '{name}'")
+                        value = get_field(root, node)
                         if args[0] is not Any:
                             logger.debug(f"    checking value type is a '{args[0].__name__}'")
                             if not isinstance(value, args[0]):
@@ -112,12 +118,12 @@ class Pipe:
                         kwargs[name] = value
                     except KeyError:
                         if param.default is param.empty:
-                            raise KeyError(f"{ann_name} node not found: '{ann.node}'")
+                            raise KeyError(f"{ann_name} node not found: '{node}'")
                         logger.debug(f"    copying default value '{param.default}'")
                         default = deepcopy(param.default)
                         if getattr(ann, "setdefault", False):
                             logger.debug("    setting node to default value")
-                            set_field(root, ann.node, default)
+                            set_field(root, node, default)
                         kwargs[name] = default
 
         if not dry_run or "dry_run" in kwargs:
@@ -174,9 +180,10 @@ class Pipe:
         pass
 
     class State(Node):
-        def __init__(self, node, *, setdefault=False):
+        def __init__(self, node, *, setdefault=False, indirect=True):
             super().__init__(node)
             self.setdefault = setdefault
+            self.indirect = indirect
 
 
 @Pipe("elastic.pipes")

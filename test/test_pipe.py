@@ -155,6 +155,45 @@ def test_state_optional():
     Pipe.find("test_state_optional").run({}, {}, False, logger)
 
 
+def test_state_indirect():
+    @Pipe("test_state_indirect_me")
+    def _(
+        pipe: Pipe,
+        name: Annotated[str, Pipe.State("name")],
+    ):
+        assert name == "me"
+
+    Pipe.find("test_state_indirect_me").run({}, {"name": "me"}, False, logger)
+    Pipe.find("test_state_indirect_me").run({"name": "username"}, {"username": "me", "name": "you"}, False, logger)
+
+    @Pipe("test_state_indirect_you")
+    def _(
+        pipe: Pipe,
+        name: Annotated[str, Pipe.State("name", indirect=False)],
+    ):
+        assert name == "you"
+
+    Pipe.find("test_state_indirect_you").run({"name": "username"}, {"username": "me", "name": "you"}, False, logger)
+
+    @Pipe("test_state_indirect_us")
+    def _(
+        pipe: Pipe,
+        name: Annotated[str, Pipe.State("name", indirect="user")],
+    ):
+        assert name == "us"
+
+    Pipe.find("test_state_indirect_us").run({}, {"name": "us", "username": "them"}, False, logger)
+
+    @Pipe("test_state_indirect_them")
+    def _(
+        pipe: Pipe,
+        name: Annotated[str, Pipe.State("name", indirect="user")],
+    ):
+        assert name == "them"
+
+    Pipe.find("test_state_indirect_them").run({"user": "username"}, {"name": "us", "username": "them"}, False, logger)
+
+
 def test_state_setdefault():
     state = {}
 
