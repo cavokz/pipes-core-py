@@ -27,7 +27,7 @@ from .util import deserialize, fatal, set_field, warn_interactive
 def main(
     pipe: Pipe,
     dry_run: bool = False,
-    base_dir: Annotated[Path, Pipe.State("runtime.base-dir")] = Path.cwd(),
+    base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = Path.cwd(),
     file_name: Annotated[str, Pipe.Config("file")] = None,
     field: Annotated[str, Pipe.Config("field")] = None,
     format: Annotated[str, Pipe.Config("format")] = None,
@@ -52,7 +52,7 @@ def main(
     pipe.logger.info(f"importing {msg_field} from {msg_file_name}...")
 
     if file_name:
-        with open(base_dir / file_name, "r") as f:
+        with open(Path(base_dir) / file_name, "r") as f:
             warn_interactive(f)
             value = deserialize(f, format=format) or {}
     else:

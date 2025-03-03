@@ -27,7 +27,7 @@ from .util import get_field, serialize
 def main(
     pipe: Pipe,
     dry_run: bool = False,
-    base_dir: Annotated[Path, Pipe.State("runtime.base-dir")] = Path.cwd(),
+    base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = Path.cwd(),
     file_name: Annotated[str, Pipe.Config("file")] = None,
     field: Annotated[str, Pipe.Config("field")] = None,
     format: Annotated[str, Pipe.Config("format")] = None,
@@ -49,7 +49,7 @@ def main(
     value = get_field(pipe.state, field)
 
     if file_name:
-        with open(base_dir / file_name, "w") as f:
+        with open(Path(base_dir) / file_name, "w") as f:
             serialize(f, value, format=format)
     else:
         serialize(sys.stdout, value, format=format)
