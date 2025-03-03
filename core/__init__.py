@@ -18,9 +18,9 @@ import logging
 import sys
 from collections.abc import Mapping, Sequence
 
-from typing_extensions import Annotated, NoDefault, get_args
+from typing_extensions import Annotated, Any, NoDefault, get_args
 
-from .errors import ConfigError
+from .errors import ConfigError, Error
 from .util import get_field, set_field
 
 __version__ = "0.3.0-dev"
@@ -103,7 +103,12 @@ class Pipe:
                     root = locals()[ann_name]
                     try:
                         logger.debug(f"  pass {ann_name} node '{ann.node}' as variable '{name}'")
-                        kwargs[name] = args[0](get_field(root, ann.node))
+                        value = get_field(root, ann.node)
+                        if args[0] is not Any:
+                            logger.debug(f"    checking value type is a '{args[0].__name__}'")
+                            if not isinstance(value, args[0]):
+                                raise Error(f"{ann_name} node type mismatch: '{type(value).__name__}' (expected '{args[0].__name__}')")
+                        kwargs[name] = value
                     except KeyError:
                         if param.default is param.empty:
                             raise KeyError(f"{ann_name} node not found: '{ann.node}'")

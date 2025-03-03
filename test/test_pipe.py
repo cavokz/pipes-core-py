@@ -16,10 +16,10 @@ import logging
 import re
 
 import pytest
-from typing_extensions import Annotated
+from typing_extensions import Annotated, Any
 
 from core import Pipe, get_pipes
-from core.errors import ConfigError
+from core.errors import ConfigError, Error
 
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter("%(name)s - %(message)s"))
@@ -85,11 +85,24 @@ def test_config():
     ):
         assert name == "me"
 
+    @Pipe("test_config_any")
+    def _(
+        pipe: Pipe,
+        name: Annotated[Any, Pipe.Config("name")],
+    ):
+        assert name
+
     msg = "config node not found: 'name'"
     with pytest.raises(KeyError, match=msg):
         Pipe.find("test_config").run({}, {}, False, logger)
 
     Pipe.find("test_config").run({"name": "me"}, {}, False, logger)
+
+    msg = re.escape("config node type mismatch: 'int' (expected 'str')")
+    with pytest.raises(Error, match=msg):
+        Pipe.find("test_config").run({"name": 0}, {}, False, logger)
+
+    Pipe.find("test_config_any").run({"name": 1}, {}, False, logger)
 
 
 def test_config_optional():
@@ -111,11 +124,24 @@ def test_state():
     ):
         assert name == "me"
 
+    @Pipe("test_state_any")
+    def _(
+        pipe: Pipe,
+        name: Annotated[Any, Pipe.State("name")],
+    ):
+        assert name
+
     msg = "state node not found: 'name'"
     with pytest.raises(KeyError, match=msg):
         Pipe.find("test_state").run({}, {}, False, logger)
 
     Pipe.find("test_state").run({}, {"name": "me"}, False, logger)
+
+    msg = re.escape("state node type mismatch: 'int' (expected 'str')")
+    with pytest.raises(Error, match=msg):
+        Pipe.find("test_state").run({}, {"name": 0}, False, logger)
+
+    Pipe.find("test_state_any").run({}, {"name": 1}, False, logger)
 
 
 def test_state_optional():
