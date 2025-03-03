@@ -17,6 +17,7 @@
 import logging
 import sys
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 
 from typing_extensions import Annotated, Any, NoDefault, get_args
 
@@ -112,11 +113,12 @@ class Pipe:
                     except KeyError:
                         if param.default is param.empty:
                             raise KeyError(f"{ann_name} node not found: '{ann.node}'")
-                        logger.debug(f"    using default value '{param.default}'")
-                        kwargs[name] = param.default
+                        logger.debug(f"    copying default value '{param.default}'")
+                        default = deepcopy(param.default)
                         if getattr(ann, "setdefault", False):
-                            logger.debug(f"    setting {ann_name} node '{ann.node}' to the default value")
-                            set_field(root, ann.node, param.default)
+                            logger.debug("    setting node to default value")
+                            set_field(root, ann.node, default)
+                        kwargs[name] = default
 
         if not dry_run or "dry_run" in kwargs:
             try:
