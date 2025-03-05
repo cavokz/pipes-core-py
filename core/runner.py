@@ -19,9 +19,9 @@ import sys
 from pathlib import Path
 
 import typer
-from typing_extensions import Annotated
+from typing_extensions import Annotated, List, Optional
 
-from .util import fatal, get_field, warn_interactive
+from .util import fatal, get_field, set_field, warn_interactive
 
 main = typer.Typer(pretty_exceptions_enable=False)
 
@@ -61,11 +61,34 @@ def sync_logger_config(logger, config):
         logger.setLevel(level.upper())
 
 
+def parse_runtime_arguments(arguments):
+    import ast
+
+    args = {}
+    for arg in arguments:
+        name, *value = arg.split("=")
+        if not value:
+            set_field(args, name, None)
+            continue
+        value = value[0]
+        if not value:
+            set_field(args, name, None)
+            continue
+        try:
+            value = ast.literal_eval(value)
+        except ValueError:
+            pass
+        set_field(args, name, value)
+
+    return args
+
+
 @main.command()
 def run(
     config_file: typer.FileText,
     dry_run: Annotated[bool, typer.Option()] = False,
     log_level: Annotated[str, typer.Option(callback=setup_logging)] = None,
+    arguments: Annotated[Optional[List[str]], typer.Option("--argument", "-a")] = None,
 ):
     """
     Run pipes
@@ -76,6 +99,8 @@ def run(
     from . import Pipe, get_pipes
     from .errors import Error
     from .util import deserialize_yaml
+
+    logger = logging.getLogger("elastic.pipes.core")
 
     try:
         warn_interactive(config_file)
@@ -101,7 +126,8 @@ def run(
         }
     )
 
-    logger = logging.getLogger("elastic.pipes.core")
+    if arguments:
+        state["runtime"]["arguments"] = parse_runtime_arguments(arguments)
 
     pipes = get_pipes(state)
 
