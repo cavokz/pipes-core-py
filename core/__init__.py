@@ -24,7 +24,7 @@ from typing_extensions import Annotated, Any, NoDefault, get_args
 from .errors import ConfigError, Error
 from .util import get_field, set_field
 
-__version__ = "0.3.0"
+__version__ = "0.4.0-dev"
 
 
 def validate_logging_config(name, config):
