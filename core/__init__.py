@@ -16,14 +16,20 @@
 
 import logging
 import sys
+from abc import ABC, abstractmethod
+from collections import namedtuple
 from collections.abc import Mapping, Sequence
 
 from typing_extensions import Annotated, Any, NoDefault, get_args
 
 from .errors import ConfigError, Error
-from .util import get_node, is_mutable
+from .util import get_node, has_node, is_mutable, set_node
 
 __version__ = "0.5.0-dev"
+
+
+def _indirect(node):
+    return node + "@"
 
 
 def validate_logging_config(name, config):
@@ -99,35 +105,17 @@ class Pipe:
             if isinstance(param.annotation, type):
                 if issubclass(param.annotation, Pipe):
                     kwargs[name] = self
-                    continue
-                if issubclass(param.annotation, logging.Logger):
+                elif issubclass(param.annotation, logging.Logger):
                     kwargs[name] = self.logger
-                    continue
+                elif issubclass(param.annotation, Pipe.Context):
+                    kwargs[name] = param.annotation.bind(config, state, logger)
+                continue
             args = get_args(param.annotation)
             for ann in args:
-                if isinstance(ann, self.Node):
-                    if param.default is not param.empty and is_mutable(param.default):
-                        raise TypeError(f"mutable default values are not supported: {param.default}")
-                    ann_name = ann.__class__.__name__.lower()
-                    root = locals()[ann_name]
-                    node = ann.node
-                    indirect = getattr(ann, "indirect", False)
-                    if indirect:
-                        if indirect is True:
-                            indirect = node
-                        node = get_node(config, indirect, None) or node
-                    try:
-                        logger.debug(f"  pass {ann_name} node '{node}' as variable '{name}'")
-                        value = get_node(root, node)
-                        if args[0] is not Any:
-                            logger.debug(f"    checking value type is a '{args[0].__name__}'")
-                            if not isinstance(value, args[0]):
-                                raise Error(f"{ann_name} node type mismatch: '{type(value).__name__}' (expected '{args[0].__name__}')")
-                        kwargs[name] = value
-                    except KeyError:
-                        if param.default is param.empty:
-                            raise KeyError(f"{ann_name} node not found: '{node}'")
-                        kwargs[name] = param.default
+                if isinstance(ann, Pipe.Context):
+                    param = Pipe.Context.Param(name, args[0], param.default, param.empty)
+                    _, getter, _ = ann.handle_param(param, config, state, logger)
+                    kwargs[name] = getter(None)
 
         if not dry_run or "dry_run" in kwargs:
             try:
@@ -153,30 +141,129 @@ class Pipe:
         stack = get_node(self.state, "stack")
         return get_kb_client(stack)
 
-    class Node:
-        def __init__(self, node):
+    class Context(ABC):
+        Param = namedtuple("Param", ["name", "type", "default", "empty"])
+        Binding = namedtuple("Binding", ["node"])
+
+        def __init__(self, node=None):
             self.node = node
 
-    class Config(Node):
-        pass
+        @classmethod
+        def bind(cls, config, state, logger):
+            # define a new sub-type of the user's context, make it concrete or it cannot be instantiated
+            sub = type(cls.__name__, (cls,), {"handle_param": None})
+            bindings = {}
+            for name, ann in cls.__annotations__.items():
+                if isinstance(ann, type):
+                    if issubclass(ann, Pipe.Context):
+                        nested = ann.bind(config, state, logger)
+                        setattr(sub, name, nested)
+                    continue
+                args = get_args(ann)
+                for i, ann in enumerate(args):
+                    if isinstance(ann, Pipe.Context):
+                        default = getattr(cls, name, NoDefault)
+                        param = cls.Param(name, args[0], default, NoDefault)
+                        node, getter, setter = ann.handle_param(param, config, state, logger)
+                        setattr(sub, name, property(getter, setter))
+                        bindings[name] = cls.Binding(node)
 
-    class State(Node):
-        def __init__(self, node, *, indirect=True):
+            setattr(sub, "__pipe_ctx_bindings__", bindings)
+            return sub()
+
+        @classmethod
+        def get_binding(cls, name):
+            return cls.__pipe_ctx_bindings__.get(name)
+
+        @abstractmethod
+        def handle_param(self, param, config, state, logger):
+            pass
+
+    class Config(Context):
+        def handle_param(self, param, config, state, logger):
+            if param.default is not param.empty and is_mutable(param.default):
+                raise TypeError(f"mutable default config values are not allowed: {param.default}")
+            has_value = has_node(config, self.node)
+            has_indirect = has_node(config, _indirect(self.node))
+            if has_value and has_indirect:
+                raise ConfigError(f"cannot specify both '{self.node}' and '{_indirect(self.node)}'")
+            if has_indirect:
+                node = get_node(config, _indirect(self.node))
+                root = state
+                root_name = "state"
+            else:
+                node = self.node
+                root = config
+                root_name = "config"
+            logger.debug(f"  bind context '{param.name}' to {root_name} node '{node}'")
+
+            def default_action():
+                if param.default is param.empty:
+                    raise KeyError(f"{root_name} node not found: '{node}'")
+                return param.default
+
+            def getter(_):
+                value = get_node(root, node, default_action=default_action)
+                if value is None or param.type is Any or isinstance(value, param.type):
+                    return value
+                value_type = type(value).__name__
+                expected_type = param.type.__name__
+                raise Error(f"{root_name} node type mismatch: '{value_type}' (expected '{expected_type}')")
+
+            return node, getter, None
+
+    class State(Context):
+        def __init__(self, node, *, indirect=True, mutable=False):
             super().__init__(node)
             self.indirect = indirect
+            self.mutable = mutable
+            if node is None and not isinstance(indirect, str):
+                self.indirect = False
+
+        def handle_param(self, param, config, state, logger):
+            if param.default is not param.empty and is_mutable(param.default):
+                raise TypeError(f"mutable default state values are not allowed: {param.default}")
+            if self.indirect:
+                indirect = _indirect(self.node if self.indirect is True else self.indirect)
+                has_indirect = has_node(config, indirect)
+            else:
+                has_indirect = False
+            node = get_node(config, indirect) if has_indirect else self.node
+            if node is None:
+                logger.debug(f"  bind context '{param.name}' to the whole state")
+            else:
+                logger.debug(f"  bind context '{param.name}' to state node '{node}'")
+
+            def default_action():
+                if param.default is param.empty:
+                    raise KeyError(f"state node not found: '{node}'")
+                return param.default
+
+            def getter(_):
+                value = get_node(state, node, default_action=default_action)
+                if value is None or param.type is Any or isinstance(value, param.type):
+                    return value
+                value_type = type(value).__name__
+                expected_type = param.type.__name__
+                raise Error(f"state node type mismatch: '{value_type}' (expected '{expected_type}')")
+
+            def setter(_, value):
+                set_node(state, node, value)
+
+            return node, getter, setter if self.mutable else None
 
 
 @Pipe("elastic.pipes")
-def elastic_pipes(
-    pipe: Pipe,
-    dry_run: bool = False,
+def _elastic_pipes(
+    log: logging.Logger,
     level: Annotated[str, Pipe.Config("logging.level")] = None,
     min_version: Annotated[str, Pipe.Config("minimum-version")] = None,
+    dry_run: bool = False,
 ):
-    if level is not None and not getattr(pipe.logger, "overridden", False):
-        pipe.logger.setLevel(level.upper())
+    if level is not None and not getattr(log, "overridden", False):
+        log.setLevel(level.upper())
     if min_version is not None:
         from semver import VersionInfo
 
         if VersionInfo.parse(__version__) < VersionInfo.parse(min_version):
-            raise ConfigError(f"invalid configuration: current version is older than minimum version: {__version__} < {min_version}")
+            raise ConfigError(f"current version is older than minimum version: {__version__} < {min_version}")

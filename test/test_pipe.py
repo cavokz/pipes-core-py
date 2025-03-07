@@ -16,7 +16,7 @@ import logging
 import re
 
 import pytest
-from typing_extensions import Annotated, Any
+from typing_extensions import Annotated, Any, get_args
 
 from core import Pipe, get_pipes
 from core.errors import ConfigError, Error
@@ -92,6 +92,13 @@ def test_config():
     ):
         assert name
 
+    @Pipe("test_config_mutable_default")
+    def _(
+        pipe: Pipe,
+        name: Annotated[Any, Pipe.Config("name")] = {},
+    ):
+        pass
+
     msg = "config node not found: 'name'"
     with pytest.raises(KeyError, match=msg):
         Pipe.find("test_config").run({}, {}, False, logger)
@@ -103,6 +110,10 @@ def test_config():
         Pipe.find("test_config").run({"name": 0}, {}, False, logger)
 
     Pipe.find("test_config_any").run({"name": 1}, {}, False, logger)
+
+    msg = re.escape("mutable default config values are not allowed: {}")
+    with pytest.raises(TypeError, match=msg):
+        Pipe.find("test_config_mutable_default").run({}, {}, False, logger)
 
 
 def test_config_optional():
@@ -150,9 +161,84 @@ def test_state():
 
     Pipe.find("test_state_any").run({}, {"name": 1}, False, logger)
 
-    msg = re.escape("mutable default values are not supported: {}")
+    msg = re.escape("mutable default state values are not allowed: {}")
     with pytest.raises(TypeError, match=msg):
         Pipe.find("test_state_mutable_default").run({}, {}, False, logger)
+
+
+def test_ctx():
+    class TestContext(Pipe.Context):
+        name: Annotated[str, Pipe.Config("name"), "some other annotation"]
+        user: Annotated[str, Pipe.State("user.name", mutable=True)]
+
+    class TestNestedContext(Pipe.Context):
+        inner: TestContext
+        other: str
+
+    @Pipe("test_ctx")
+    def _(ctx: TestContext):
+        assert ctx.name == "me"
+        assert ctx.user == "you"
+        assert "some other annotation" in get_args(ctx.__annotations__["name"])
+
+    @Pipe("test_ctx_set")
+    def _(ctx: TestContext):
+        ctx.name = "you"
+
+    @Pipe("test_ctx_set2")
+    def _(ctx: TestContext):
+        ctx.user = ctx.name
+
+    @Pipe("test_ctx_nested")
+    def _(ctx: TestNestedContext):
+        assert ctx.inner.name == "me"
+        assert ctx.inner.user == "you"
+        assert ctx.__annotations__["other"] is str
+
+    @Pipe("test_ctx_nested_set")
+    def _(ctx: TestNestedContext):
+        ctx.inner.name = "you"
+
+    @Pipe("test_ctx_nested_set2")
+    def _(ctx: TestNestedContext):
+        ctx.inner.user = ctx.inner.name
+
+    msg = "config node not found: 'name'"
+    with pytest.raises(KeyError, match=msg):
+        Pipe.find("test_ctx").run({}, {}, False, logger)
+
+    msg = "state node not found: 'user.name'"
+    with pytest.raises(KeyError, match=msg):
+        Pipe.find("test_ctx").run({"name": "me"}, {}, False, logger)
+
+    msg = "cannot specify both 'name' and 'name@'"
+    with pytest.raises(ConfigError, match=msg):
+        Pipe.find("test_ctx").run({"name": "me", "name@": "name"}, {}, False, logger)
+
+    msg = re.escape("config node type mismatch: 'int' (expected 'str')")
+    with pytest.raises(Error, match=msg):
+        Pipe.find("test_ctx").run({"name": 0}, {}, False, logger)
+
+    Pipe.find("test_ctx").run({"name": "me"}, {"user": {"name": "you"}}, False, logger)
+    Pipe.find("test_ctx_nested").run({"name": "me"}, {"user": {"name": "you"}}, False, logger)
+
+    msg = "can't set attribute"
+    with pytest.raises(AttributeError, match=msg):
+        Pipe.find("test_ctx_set").run({"name": 0}, {}, False, logger)
+
+    msg = "can't set attribute"
+    with pytest.raises(AttributeError, match=msg):
+        Pipe.find("test_ctx_nested_set").run({"name": 0}, {}, False, logger)
+
+    config = {"name": "me"}
+    state = {}
+    Pipe.find("test_ctx_set2").run(config, state, False, logger)
+    assert state == {"user": {"name": "me"}}
+
+    config = {"name": "me"}
+    state = {}
+    Pipe.find("test_ctx_nested_set2").run(config, state, False, logger)
+    assert state == {"user": {"name": "me"}}
 
 
 def test_state_optional():
@@ -175,7 +261,7 @@ def test_state_indirect():
         assert name == "me"
 
     Pipe.find("test_state_indirect_me").run({}, {"name": "me"}, False, logger)
-    Pipe.find("test_state_indirect_me").run({"name": "username"}, {"username": "me", "name": "you"}, False, logger)
+    Pipe.find("test_state_indirect_me").run({"name@": "username"}, {"username": "me", "name": "you"}, False, logger)
 
     @Pipe("test_state_indirect_you")
     def _(
@@ -202,7 +288,7 @@ def test_state_indirect():
     ):
         assert name == "them"
 
-    Pipe.find("test_state_indirect_them").run({"user": "username"}, {"name": "us", "username": "them"}, False, logger)
+    Pipe.find("test_state_indirect_them").run({"user@": "username"}, {"name": "us", "username": "them"}, False, logger)
 
 
 def test_get_pipes():

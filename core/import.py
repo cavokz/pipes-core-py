@@ -18,47 +18,46 @@ import sys
 from logging import Logger
 from pathlib import Path
 
-from typing_extensions import Annotated
+from typing_extensions import Annotated, Any
 
 from . import Pipe
-from .util import deserialize, fatal, set_node, warn_interactive
+from .util import deserialize, fatal, warn_interactive
+
+
+class Ctx(Pipe.Context):
+    base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = Path.cwd()
+    file_name: Annotated[str, Pipe.Config("file")] = None
+    format: Annotated[str, Pipe.Config("format")] = None
+    state: Annotated[Any, Pipe.State(None, indirect="node", mutable=True)]
+    interactive: Annotated[bool, Pipe.Config("interactive")] = False
 
 
 @Pipe("elastic.pipes.core.import")
-def main(
-    pipe: Pipe,
-    log: Logger,
-    dry_run: bool = False,
-    base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = Path.cwd(),
-    file_name: Annotated[str, Pipe.Config("file")] = None,
-    node: Annotated[str, Pipe.Config("node")] = None,
-    format: Annotated[str, Pipe.Config("format")] = None,
-    interactive: Annotated[bool, Pipe.Config("interactive")] = False,
-):
+def main(ctx: Ctx, log: Logger, dry_run: bool):
+    format = ctx.format
     if format is None:
-        if file_name:
-            format = Path(file_name).suffix.lower()[1:]
+        if ctx.file_name:
+            format = Path(ctx.file_name).suffix.lower()[1:]
             log.debug(f"import file format guessed from file extension: {format}")
         else:
             format = "yaml"
             log.debug(f"assuming import file format: {format}")
 
-    if not file_name and sys.stdin.isatty() and not interactive:
+    if not ctx.file_name and sys.stdin.isatty() and not ctx.interactive:
         fatal("To use `elastic.pipes.core.import` interactively, set `interactive: true` in its configuration.")
 
     if dry_run:
         return
 
-    msg_node = f"'{node}'" if node not in (None, "", ".") else "everything"
-    msg_file_name = f"'{file_name}'" if file_name else "standard input"
-    log.info(f"importing {msg_node} from {msg_file_name}...")
+    node = ctx.get_binding("state").node
+    msg_state = "everything" if node is None else f"'{node}'"
+    msg_file_name = f"'{ctx.file_name}'" if ctx.file_name else "standard input"
+    log.info(f"importing {msg_state} from {msg_file_name}...")
 
-    if file_name:
-        with open(Path(base_dir) / file_name, "r") as f:
+    if ctx.file_name:
+        with open(Path(ctx.base_dir) / ctx.file_name, "r") as f:
             warn_interactive(f)
-            value = deserialize(f, format=format) or {}
+            ctx.state = deserialize(f, format=format) or {}
     else:
         warn_interactive(sys.stdin)
-        value = deserialize(sys.stdin, format=format) or {}
-
-    set_node(pipe.state, node, value)
+        ctx.state = deserialize(sys.stdin, format=format) or {}

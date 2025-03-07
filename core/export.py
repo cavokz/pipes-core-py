@@ -18,25 +18,25 @@ import sys
 from logging import Logger
 from pathlib import Path
 
-from typing_extensions import Annotated
+from typing_extensions import Annotated, Any
 
 from . import Pipe
-from .util import get_node, serialize
+from .util import serialize
+
+
+class Ctx(Pipe.Context):
+    base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = Path.cwd()
+    file_name: Annotated[str, Pipe.Config("file")] = None
+    format: Annotated[str, Pipe.Config("format")] = None
+    state: Annotated[Any, Pipe.State(None, indirect="node")]
 
 
 @Pipe("elastic.pipes.core.export")
-def main(
-    pipe: Pipe,
-    log: Logger,
-    dry_run: bool = False,
-    base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = Path.cwd(),
-    file_name: Annotated[str, Pipe.Config("file")] = None,
-    node: Annotated[str, Pipe.Config("node")] = None,
-    format: Annotated[str, Pipe.Config("format")] = None,
-):
+def main(ctx: Ctx, log: Logger, dry_run: bool):
+    format = ctx.format
     if format is None:
-        if file_name:
-            format = Path(file_name).suffix.lower()[1:]
+        if ctx.file_name:
+            format = Path(ctx.file_name).suffix.lower()[1:]
             log.debug(f"export file format guessed from file extension: {format}")
         else:
             format = "yaml"
@@ -45,13 +45,13 @@ def main(
     if dry_run:
         return
 
-    msg_node = f"'{node}'" if node not in (None, "", ".") else "everything"
-    msg_file_name = f"'{file_name}'" if file_name else "standard output"
-    log.info(f"exporting {msg_node} to {msg_file_name}...")
-    value = get_node(pipe.state, node)
+    node = ctx.get_binding("state").node
+    msg_state = "everything" if node is None else f"'{node}'"
+    msg_file_name = f"'{ctx.file_name}'" if ctx.file_name else "standard output"
+    log.info(f"exporting {msg_state} to {msg_file_name}...")
 
-    if file_name:
-        with open(Path(base_dir) / file_name, "w") as f:
-            serialize(f, value, format=format)
+    if ctx.file_name:
+        with open(Path(ctx.base_dir) / ctx.file_name, "w") as f:
+            serialize(f, ctx.state, format=format)
     else:
-        serialize(sys.stdout, value, format=format)
+        serialize(sys.stdout, ctx.state, format=format)

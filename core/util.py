@@ -92,25 +92,26 @@ def has_node(dict, path):
     return dict
 
 
-def get_node(dict, path, default=NoDefault, *, shell_expand=False):
+def get_node(dict, path, default=NoDefault, *, default_action=None, shell_expand=False):
+    if default_action is None:
+
+        def default_action():
+            if default is NoDefault:
+                raise KeyError(path)
+            return default
+
     keys = split_path(path)
     for i, key in enumerate(keys):
         if dict is None:
-            if default == NoDefault:
-                raise KeyError(path)
-            return default
+            return default_action()
         if not isinstance(dict, Mapping):
             raise Error(f"not an object: {'.'.join(keys[:i])} (type is {type(dict).__name__})")
         try:
             dict = dict[key]
         except KeyError:
-            if default == NoDefault:
-                raise KeyError(path)
-            return default
+            return default_action()
     if dict is None:
-        if default == NoDefault:
-            raise KeyError(path)
-        return default
+        return default_action()
     if shell_expand:
         from .shelllib import shell_expand
 

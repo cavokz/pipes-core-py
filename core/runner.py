@@ -184,17 +184,19 @@ def new_pipe(
             f.write(
                 f"""#!/usr/bin/env python3
 
+from logging import Logger
+
 from elastic.pipes.core import Pipe
 from typing_extensions import Annotated
 
 
 @Pipe("{pipe_file.stem}", default={{}})
 def main(
-    pipe: Pipe,
-    dry_run: bool = False,
+    log: Logger,
     name: Annotated[str, Pipe.State("name")] = "world",
+    dry_run: bool = False,
 ):
-    pipe.logger.info(f"Hello, {{name}}!")
+    log.info(f"Hello, {{name}}!")
 
 
 if __name__ == "__main__":

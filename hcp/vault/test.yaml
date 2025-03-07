@@ -2,19 +2,19 @@
 
 pipes:
   - elastic.pipes.core.import:
-      node: secret-in.data
+      node@: secret-in.data
   - elastic.pipes.hcp.vault.write:
       url: http://localhost:8200
       # get token from environment variable
       path: secret/data/test
-      vault: secret-in
+      vault@: secret-in
   - elastic.pipes.hcp.vault.read:
       # get url from environment variable
       token: test
       path: secret/data/test
-      vault: secret-out
+      vault@: secret-out
   - elastic.pipes.core.export:
-      node: secret-out.data
+      node@: secret-out.data
 
 secret-in: {}
 secret-out: {}
