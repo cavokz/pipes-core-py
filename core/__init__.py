@@ -104,10 +104,26 @@ class Pipe:
                     root = locals()[ann_name]
                     node = ann.node
                     indirect = getattr(ann, "indirect", False)
-                    if indirect:
+                    while indirect:
                         if indirect is True:
                             indirect = node
-                        node = get_field(config, indirect, None) or node
+                        tmp = get_field(config, f"get-{indirect}-from", None)
+                        if tmp is not None:
+                            logger.debug(f"  going through 'get-{indirect}-from'")
+                            node = tmp
+                            break
+                        tmp = get_field(config, f"set-{indirect}-to", None)
+                        if tmp is not None:
+                            logger.debug(f"  going through 'set-{indirect}-to'")
+                            node = tmp
+                            break
+                        tmp = get_field(config, f"update-{indirect}-at", None)
+                        if tmp is not None:
+                            logger.debug(f"  going through 'update-{indirect}-at'")
+                            node = tmp
+                            break
+                        root = state
+                        break
                     try:
                         logger.debug(f"  pass {ann_name} node '{node}' as variable '{name}'")
                         value = get_field(root, node)
