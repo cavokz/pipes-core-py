@@ -84,7 +84,7 @@ jobs:
 
       - name: Check versions
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        run: "set -x; [ \"${{ github.ref }}\" = \"refs/tags/v$(python3 -c 'import core; print(core.__version__)')\" ]"
+        run: "set -x; test \"${{ github.ref }}\" = \"refs/tags/v$(python3 -c 'import core; print(core.__version__)')\""
 
       - name: Build package
         run: make package
