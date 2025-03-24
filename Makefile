@@ -35,7 +35,6 @@ test-venv: VENV := test/venv
 test-venv: $(VENV)
 	$(ACTIVATE); $(MAKE) test-ci
 
-test-ci: FORMATS=json ndjson yaml
 test-ci:
 	pip install -r requirements.txt .
 	$(MAKE) pkg-test
@@ -47,6 +46,7 @@ pkg-build:
 pkg-install:
 	$(PYTHON) -m pip install --force-reinstall dist/elastic_pipes-*.whl
 
+pkg-test: FORMATS=json ndjson yaml
 pkg-test:
 	elastic-pipes version
 	elastic-pipes new-pipe -f test/test-pipe.py
@@ -57,7 +57,7 @@ pkg-test:
 	@$(foreach SRC,$(FORMATS), \
 		$(foreach DEST,$(FORMATS), \
 			echo "$(SRC) -> $(DEST)"; \
-			echo 'pipes: ["elastic.pipes.core.import": {"field": "documents", "file": "test/docs.$(SRC)"}, "elastic.pipes.core.export": {"field": "documents", "format": "$(DEST)"}]' | elastic-pipes run --log-level=debug - | [ "`$(TEE_STDERR)`" = "`cat test/docs.$(DEST)`" ]; \
+			echo 'pipes: ["elastic.pipes.core.import": {"field": "documents", "file": "test/docs.$(SRC)"}, "elastic.pipes.core.export": {"field": "documents", "format": "$(DEST)"}]' | elastic-pipes run --log-level=debug - | [ "`$(TEE_STDERR)`" = "`cat test/docs.$(DEST)`" ] || exit 1; \
 		) \
 	)
 
