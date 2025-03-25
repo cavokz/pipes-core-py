@@ -49,9 +49,9 @@ pkg-install:
 pkg-test: FORMATS=json ndjson yaml
 pkg-test:
 	elastic-pipes version
-	elastic-pipes new-pipe -f test/test-pipe.py
-	echo "test-result: ok" | $(PYTHON) test/test-pipe.py | [ "`$(TEE_STDERR)`" = "test-result: ok" ]
-	echo "name: $(USERNAME)" | $(PYTHON) test/test-pipe.py | [ "`$(TEE_STDERR)`" = "name: $(USERNAME)" ]
+	elastic-pipes new-pipe -f test/hello.py
+	echo "test-result: ok" | $(PYTHON) test/hello.py | [ "`$(TEE_STDERR)`" = "test-result: ok" ]
+	echo "name: $(USERNAME)" | $(PYTHON) test/hello.py | [ "`$(TEE_STDERR)`" = "name: $(USERNAME)" ]
 	echo "test-result: ok" | elastic-pipes run --log-level=debug test/test.yaml | [ "`$(TEE_STDERR)`" = "test-result: ok" ]
 	cat test/test.yaml | elastic-pipes run --log-level=debug - | [ "`$(TEE_STDERR)`" = "{}" ]
 	@$(foreach SRC,$(FORMATS), \
@@ -69,6 +69,6 @@ package: pkg-build
 	rm -rf $(VENV)
 
 clean:
-	rm -rf build *.egg-info test/venv test/test-pipe.py
+	rm -rf build *.egg-info test/venv test/hello.py
 
 .PHONY: FORCE
