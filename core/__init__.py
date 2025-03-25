@@ -97,6 +97,10 @@ class Pipe:
             if name == "dry_run":
                 kwargs["dry_run"] = dry_run
                 continue
+            if isinstance(param.annotation, type):
+                if issubclass(param.annotation, logging.Logger):
+                    kwargs[name] = self.logger
+                    continue
             args = get_args(param.annotation)
             for ann in args:
                 if isinstance(ann, self.Node):

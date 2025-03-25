@@ -15,6 +15,7 @@
 """Elastic Pipes component to import data into the Pipes state."""
 
 import sys
+from logging import Logger
 from pathlib import Path
 
 from typing_extensions import Annotated
@@ -26,6 +27,7 @@ from .util import deserialize, fatal, set_field, warn_interactive
 @Pipe("elastic.pipes.core.import")
 def main(
     pipe: Pipe,
+    log: Logger,
     dry_run: bool = False,
     base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = Path.cwd(),
     file_name: Annotated[str, Pipe.Config("file")] = None,
@@ -36,10 +38,10 @@ def main(
     if format is None:
         if file_name:
             format = Path(file_name).suffix.lower()[1:]
-            pipe.logger.debug(f"import file format guessed from file extension: {format}")
+            log.debug(f"import file format guessed from file extension: {format}")
         else:
             format = "yaml"
-            pipe.logger.debug(f"assuming import file format: {format}")
+            log.debug(f"assuming import file format: {format}")
 
     if not file_name and sys.stdin.isatty() and not interactive:
         fatal("To use `elastic.pipes.core.import` interactively, set `interactive: true` in its configuration.")
@@ -49,7 +51,7 @@ def main(
 
     msg_field = f"'{field}'" if field not in (None, "", ".") else "everything"
     msg_file_name = f"'{file_name}'" if file_name else "standard input"
-    pipe.logger.info(f"importing {msg_field} from {msg_file_name}...")
+    log.info(f"importing {msg_field} from {msg_file_name}...")
 
     if file_name:
         with open(Path(base_dir) / file_name, "r") as f:

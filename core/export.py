@@ -15,6 +15,7 @@
 """Elastic Pipes component to export data from the Pipes state."""
 
 import sys
+from logging import Logger
 from pathlib import Path
 
 from typing_extensions import Annotated
@@ -26,6 +27,7 @@ from .util import get_field, serialize
 @Pipe("elastic.pipes.core.export")
 def main(
     pipe: Pipe,
+    log: Logger,
     dry_run: bool = False,
     base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = Path.cwd(),
     file_name: Annotated[str, Pipe.Config("file")] = None,
@@ -35,17 +37,17 @@ def main(
     if format is None:
         if file_name:
             format = Path(file_name).suffix.lower()[1:]
-            pipe.logger.debug(f"export file format guessed from file extension: {format}")
+            log.debug(f"export file format guessed from file extension: {format}")
         else:
             format = "yaml"
-            pipe.logger.debug(f"assuming export file format: {format}")
+            log.debug(f"assuming export file format: {format}")
 
     if dry_run:
         return
 
     msg_field = f"'{field}'" if field not in (None, "", ".") else "everything"
     msg_file_name = f"'{file_name}'" if file_name else "standard output"
-    pipe.logger.info(f"exporting {msg_field} to {msg_file_name}...")
+    log.info(f"exporting {msg_field} to {msg_file_name}...")
     value = get_field(pipe.state, field)
 
     if file_name:
