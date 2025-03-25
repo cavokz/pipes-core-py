@@ -33,18 +33,18 @@ def test_dry_run():
     executions = 0
 
     @Pipe("test_no_dry_run")
-    def _(pipe):
+    def _():
         nonlocal executions
         executions += 1
 
     @Pipe("test_dry_run_false")
-    def _(pipe, dry_run):
+    def _(dry_run):
         nonlocal executions
         executions += 1
         assert dry_run is False
 
     @Pipe("test_dry_run_true")
-    def _(pipe, dry_run):
+    def _(dry_run):
         nonlocal executions
         executions += 1
         assert dry_run is True
@@ -66,7 +66,7 @@ def test_dry_run():
 
 def test_multiple():
     @Pipe("test_multiple")
-    def _(pipe):
+    def _():
         pass
 
     msg = f"pipe 'test_multiple' is already defined in module '{__name__}'"
