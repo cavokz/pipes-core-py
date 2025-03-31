@@ -22,16 +22,16 @@ from copy import deepcopy
 from typing_extensions import Annotated, Any, NoDefault, get_args
 
 from .errors import ConfigError, Error
-from .util import get_field, set_field
+from .util import get_node, set_node
 
 __version__ = "0.4.0-dev"
 
 
 def validate_logging_config(name, config):
-    if level := get_field(config, "logging.level", None):
+    if level := get_node(config, "logging.level", None):
         level_nr = getattr(logging, level.upper(), None)
         if not isinstance(level_nr, int):
-            raise ConfigError(f"invalid configuration: pipe '{name}': field 'logging.level': value '{level}'")
+            raise ConfigError(f"invalid configuration: pipe '{name}': node 'logging.level': value '{level}'")
 
 
 def get_pipes(state):
@@ -114,10 +114,10 @@ class Pipe:
                     if indirect:
                         if indirect is True:
                             indirect = node
-                        node = get_field(config, indirect, None) or node
+                        node = get_node(config, indirect, None) or node
                     try:
                         logger.debug(f"  pass {ann_name} node '{node}' as variable '{name}'")
-                        value = get_field(root, node)
+                        value = get_node(root, node)
                         if args[0] is not Any:
                             logger.debug(f"    checking value type is a '{args[0].__name__}'")
                             if not isinstance(value, args[0]):
@@ -130,7 +130,7 @@ class Pipe:
                         default = deepcopy(param.default)
                         if getattr(ann, "setdefault", False):
                             logger.debug("    setting node to default value")
-                            set_field(root, node, default)
+                            set_node(root, node, default)
                         kwargs[name] = default
 
         if not dry_run or "dry_run" in kwargs:
@@ -143,18 +143,18 @@ class Pipe:
                 del self.state
 
     def config(self, flag, default=NoDefault):
-        return get_field(self.__config__, flag, default)
+        return get_node(self.__config__, flag, default)
 
     def get_es(self):
         from .util import get_es_client
 
-        stack = get_field(self.state, "stack")
+        stack = get_node(self.state, "stack")
         return get_es_client(stack)
 
     def get_kb(self):
         from .util import get_kb_client
 
-        stack = get_field(self.state, "stack")
+        stack = get_node(self.state, "stack")
         return get_kb_client(stack)
 
     class Node:

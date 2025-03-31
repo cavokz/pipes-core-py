@@ -21,7 +21,7 @@ from pathlib import Path
 from typing_extensions import Annotated
 
 from . import Pipe
-from .util import get_field, serialize
+from .util import get_node, serialize
 
 
 @Pipe("elastic.pipes.core.export")
@@ -31,7 +31,7 @@ def main(
     dry_run: bool = False,
     base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = Path.cwd(),
     file_name: Annotated[str, Pipe.Config("file")] = None,
-    field: Annotated[str, Pipe.Config("field")] = None,
+    node: Annotated[str, Pipe.Config("node")] = None,
     format: Annotated[str, Pipe.Config("format")] = None,
 ):
     if format is None:
@@ -45,10 +45,10 @@ def main(
     if dry_run:
         return
 
-    msg_field = f"'{field}'" if field not in (None, "", ".") else "everything"
+    msg_node = f"'{node}'" if node not in (None, "", ".") else "everything"
     msg_file_name = f"'{file_name}'" if file_name else "standard output"
-    log.info(f"exporting {msg_field} to {msg_file_name}...")
-    value = get_field(pipe.state, field)
+    log.info(f"exporting {msg_node} to {msg_file_name}...")
+    value = get_node(pipe.state, node)
 
     if file_name:
         with open(Path(base_dir) / file_name, "w") as f:

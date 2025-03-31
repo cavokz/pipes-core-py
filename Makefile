@@ -57,7 +57,7 @@ pkg-test:
 	@$(foreach SRC,$(FORMATS), \
 		$(foreach DEST,$(FORMATS), \
 			echo "$(SRC) -> $(DEST)"; \
-			echo 'pipes: ["elastic.pipes.core.import": {"field": "documents", "file": "test/docs.$(SRC)"}, "elastic.pipes.core.export": {"field": "documents", "format": "$(DEST)"}]' | elastic-pipes run --log-level=debug - | [ "`$(TEE_STDERR)`" = "`cat test/docs.$(DEST)`" ] || exit 1; \
+			echo 'pipes: ["elastic.pipes.core.import": {"node": "documents", "file": "test/docs.$(SRC)"}, "elastic.pipes.core.export": {"node": "documents", "format": "$(DEST)"}]' | elastic-pipes run --log-level=debug - | [ "`$(TEE_STDERR)`" = "`cat test/docs.$(DEST)`" ] || exit 1; \
 		) \
 	)
 

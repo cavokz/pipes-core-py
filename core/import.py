@@ -21,7 +21,7 @@ from pathlib import Path
 from typing_extensions import Annotated
 
 from . import Pipe
-from .util import deserialize, fatal, set_field, warn_interactive
+from .util import deserialize, fatal, set_node, warn_interactive
 
 
 @Pipe("elastic.pipes.core.import")
@@ -31,7 +31,7 @@ def main(
     dry_run: bool = False,
     base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = Path.cwd(),
     file_name: Annotated[str, Pipe.Config("file")] = None,
-    field: Annotated[str, Pipe.Config("field")] = None,
+    node: Annotated[str, Pipe.Config("node")] = None,
     format: Annotated[str, Pipe.Config("format")] = None,
     interactive: Annotated[bool, Pipe.Config("interactive")] = False,
 ):
@@ -49,9 +49,9 @@ def main(
     if dry_run:
         return
 
-    msg_field = f"'{field}'" if field not in (None, "", ".") else "everything"
+    msg_node = f"'{node}'" if node not in (None, "", ".") else "everything"
     msg_file_name = f"'{file_name}'" if file_name else "standard input"
-    log.info(f"importing {msg_field} from {msg_file_name}...")
+    log.info(f"importing {msg_node} from {msg_file_name}...")
 
     if file_name:
         with open(Path(base_dir) / file_name, "r") as f:
@@ -61,4 +61,4 @@ def main(
         warn_interactive(sys.stdin)
         value = deserialize(sys.stdin, format=format) or {}
 
-    set_field(pipe.state, field, value)
+    set_node(pipe.state, node, value)

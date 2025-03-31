@@ -21,7 +21,7 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated, List, Optional
 
-from .util import fatal, get_field, set_field, warn_interactive
+from .util import fatal, get_node, set_node, warn_interactive
 
 main = typer.Typer(pretty_exceptions_enable=False)
 
@@ -54,7 +54,7 @@ def sync_logger_config(logger, config):
         logger.removeHandler(handler)
     for handler in elastic_pipes_logger.handlers:
         logger.addHandler(handler)
-    level = get_field(config, "logging.level", None)
+    level = get_node(config, "logging.level", None)
     if level is None or getattr(elastic_pipes_logger, "overridden", False):
         logger.setLevel(elastic_pipes_logger.level)
     else:
@@ -68,17 +68,17 @@ def parse_runtime_arguments(arguments):
     for arg in arguments:
         name, *value = arg.split("=")
         if not value:
-            set_field(args, name, None)
+            set_node(args, name, None)
             continue
         value = value[0]
         if not value:
-            set_field(args, name, None)
+            set_node(args, name, None)
             continue
         try:
             value = ast.literal_eval(value)
         except ValueError:
             pass
-        set_field(args, name, value)
+        set_node(args, name, value)
 
     return args
 
@@ -135,7 +135,7 @@ def run(
     if pipes:
         name, config = pipes[0]
         if name == "elastic.pipes":
-            for path in get_field(config, "search-path", None) or []:
+            for path in get_node(config, "search-path", None) or []:
                 path = str(Path(base_dir) / path)
                 if path not in sys.path:
                     logger.debug(f"adding '{path}' to the search path")
