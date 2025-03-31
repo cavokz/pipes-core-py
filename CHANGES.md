@@ -1,3 +1,12 @@
+## v0.4.0 - Mar 31, 2025
+
+* Add helpers `util.get_es_client` and `util.get_kb_client`,
+  they get the stack configuration from arbitray nodes.
+* Rework the node helpers and add unit tests.
+* Allow the pipe function to omit the Pipe parameter.
+* Allow the pipe function to have a Logger parameter.
+* Add publishing to PyPI.
+
 ## v0.3.0 - Mar 06, 2025
 
 * Use type annotations to define pipes' input/output.
