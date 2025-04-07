@@ -18,6 +18,7 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
   "elasticsearch>=8.2.0",
+  "hvac>=2.0.0",
   "pyyaml",
   "requests",
   "semver",
@@ -37,10 +38,11 @@ version = {attr = "core.__version__"}
 elastic-pipes = "elastic.pipes.core.runner:main"
 
 [tool.setuptools]
-packages = ["elastic.pipes.core"]
+packages = ["elastic.pipes.core", "elastic.pipes.hcp.vault"]
 
 [tool.setuptools.package-dir]
 "elastic.pipes.core" = "core"
+"elastic.pipes.hcp.vault" = "hcp/vault"
 
 [tool.black]
 line-length = 140
