@@ -194,30 +194,6 @@ def test_state_indirect():
     Pipe.find("test_state_indirect_them").run({"user": "username"}, {"name": "us", "username": "them"}, False, logger)
 
 
-def test_state_setdefault():
-    state = {}
-
-    @Pipe("test_state_no_setdefault")
-    def _(
-        pipe: Pipe,
-        names: Annotated[str, Pipe.State("names")] = [],
-    ):
-        names.extend(["me", "you"])
-
-    @Pipe("test_state_setdefault")
-    def _(
-        pipe: Pipe,
-        names: Annotated[str, Pipe.State("names", setdefault=True)] = [],
-    ):
-        names.extend(["me", "you"])
-
-    Pipe.find("test_state_no_setdefault").run({}, state, False, logger)
-    assert state == {}
-
-    Pipe.find("test_state_setdefault").run({}, state, False, logger)
-    assert state == {"names": ["me", "you"]}
-
-
 def test_get_pipes():
     state = None
     pipes = get_pipes(state)

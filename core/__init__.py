@@ -22,7 +22,7 @@ from copy import deepcopy
 from typing_extensions import Annotated, Any, NoDefault, get_args
 
 from .errors import ConfigError, Error
-from .util import get_node, set_node
+from .util import get_node
 
 __version__ = "0.5.0-dev"
 
@@ -128,9 +128,6 @@ class Pipe:
                             raise KeyError(f"{ann_name} node not found: '{node}'")
                         logger.debug(f"    copying default value '{param.default}'")
                         default = deepcopy(param.default)
-                        if getattr(ann, "setdefault", False):
-                            logger.debug("    setting node to default value")
-                            set_node(root, node, default)
                         kwargs[name] = default
 
         if not dry_run or "dry_run" in kwargs:
@@ -165,9 +162,8 @@ class Pipe:
         pass
 
     class State(Node):
-        def __init__(self, node, *, setdefault=False, indirect=True):
+        def __init__(self, node, *, indirect=True):
             super().__init__(node)
-            self.setdefault = setdefault
             self.indirect = indirect
 
 
