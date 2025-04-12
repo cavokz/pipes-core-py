@@ -118,28 +118,7 @@ class Pipe:
                     kwargs[name] = getter(None)
 
         if not dry_run or "dry_run" in kwargs:
-            try:
-                self.__config__ = config
-                self.state = state
-                return self.func(**kwargs)
-            finally:
-                del self.__config__
-                del self.state
-
-    def config(self, flag, default=NoDefault):
-        return get_node(self.__config__, flag, default)
-
-    def get_es(self):
-        from .util import get_es_client
-
-        stack = get_node(self.state, "stack")
-        return get_es_client(stack)
-
-    def get_kb(self):
-        from .util import get_kb_client
-
-        stack = get_node(self.state, "stack")
-        return get_kb_client(stack)
+            return self.func(**kwargs)
 
     class Context(ABC):
         Param = namedtuple("Param", ["name", "type", "default", "empty"])
