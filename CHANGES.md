@@ -1,3 +1,21 @@
+## v0.5.0 - Apr 17, 2025
+
+* Allow appending `@` to config nodes names to indicate that the value
+  shall be read from another state node.
+  For example, configuration `name: user` would result in `user` to be
+  used as value whereas `name@: user` would use whatever value is stored
+  at state node `user`.
+* Add `Pipe.Context` to struct with more freedom the bindings with state and
+  config nodes.
+* Drop `Pipe.State`'s `setdefault` option, now you have to put empty
+  entries in the state before populating them.
+* Disallow mutable values (ex. lists, dictionaries) as state/config
+  default values, use `None` for these and update the pipe's logic
+  accordingly.
+* Drop `Pipe.get_es` and `Pipe.get_kb`, use `util.get_es_client` and
+  `util.get_kb_client`; pass a stack value from the config/state.
+* Add HCP Vault read & write pipes.
+
 ## v0.4.0 - Mar 31, 2025
 
 * Add helpers `util.get_es_client` and `util.get_kb_client`,
