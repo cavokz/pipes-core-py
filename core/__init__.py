@@ -25,7 +25,7 @@ from typing_extensions import Annotated, Any, NoDefault, get_args
 from .errors import ConfigError, Error
 from .util import get_node, has_node, is_mutable, set_node
 
-__version__ = "0.5.0"
+__version__ = "0.6.0-dev"
 
 
 def _indirect(node):
