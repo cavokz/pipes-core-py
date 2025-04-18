@@ -167,13 +167,29 @@ def test_state():
 
 
 def test_ctx():
+    contexts = []
+
     class TestContext(Pipe.Context):
         name: Annotated[str, Pipe.Config("name"), "some other annotation"]
         user: Annotated[str, Pipe.State("user.name", mutable=True)]
 
+        def __enter__(self):
+            contexts.append("inner")
+            return self
+
+        def __exit__(self, *_):
+            contexts.remove("inner")
+
     class TestNestedContext(Pipe.Context):
         inner: TestContext
         other: str
+
+        def __enter__(self):
+            contexts.append("outer")
+            return self
+
+        def __exit__(self, *_):
+            contexts.remove("outer")
 
     @Pipe("test_ctx")
     def _(ctx: TestContext):
@@ -202,6 +218,10 @@ def test_ctx():
     @Pipe("test_ctx_nested_set2")
     def _(ctx: TestNestedContext):
         ctx.inner.user = ctx.inner.name
+
+    @Pipe("test_ctx_managed")
+    def _(ctx: TestNestedContext):
+        assert contexts == ["inner", "outer"]
 
     msg = "config node not found: 'name'"
     with pytest.raises(KeyError, match=msg):
@@ -239,6 +259,10 @@ def test_ctx():
     state = {}
     Pipe.find("test_ctx_nested_set2").run(config, state, False, logger)
     assert state == {"user": {"name": "me"}}
+
+    assert not contexts
+    Pipe.find("test_ctx_managed").run({}, {}, False, logger)
+    assert not contexts
 
 
 def test_state_optional():

@@ -19,6 +19,7 @@ import sys
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from collections.abc import Mapping, Sequence
+from contextlib import ExitStack
 
 from typing_extensions import Annotated, Any, NoDefault, get_args
 
@@ -97,28 +98,29 @@ class Pipe:
     def run(self, config, state, dry_run, logger):
         from inspect import signature
 
-        kwargs = {}
-        for name, param in signature(self.func).parameters.items():
-            if name == "dry_run":
-                kwargs["dry_run"] = dry_run
-                continue
-            if isinstance(param.annotation, type):
-                if issubclass(param.annotation, Pipe):
-                    kwargs[name] = self
-                elif issubclass(param.annotation, logging.Logger):
-                    kwargs[name] = self.logger
-                elif issubclass(param.annotation, Pipe.Context):
-                    kwargs[name] = param.annotation.bind(config, state, logger)
-                continue
-            args = get_args(param.annotation)
-            for ann in args:
-                if isinstance(ann, Pipe.Context):
-                    param = Pipe.Context.Param(name, args[0], param.default, param.empty)
-                    _, getter, _ = ann.handle_param(param, config, state, logger)
-                    kwargs[name] = getter(None)
+        with ExitStack() as stack:
+            kwargs = {}
+            for name, param in signature(self.func).parameters.items():
+                if name == "dry_run":
+                    kwargs["dry_run"] = dry_run
+                    continue
+                if isinstance(param.annotation, type):
+                    if issubclass(param.annotation, Pipe):
+                        kwargs[name] = self
+                    elif issubclass(param.annotation, logging.Logger):
+                        kwargs[name] = self.logger
+                    elif issubclass(param.annotation, Pipe.Context):
+                        kwargs[name] = param.annotation.bind(stack, config, state, logger)
+                    continue
+                args = get_args(param.annotation)
+                for ann in args:
+                    if isinstance(ann, Pipe.Context):
+                        param = Pipe.Context.Param(name, args[0], param.default, param.empty)
+                        _, getter, _ = ann.handle_param(param, config, state, logger)
+                        kwargs[name] = getter(None)
 
-        if not dry_run or "dry_run" in kwargs:
-            return self.func(**kwargs)
+            if not dry_run or "dry_run" in kwargs:
+                return self.func(**kwargs)
 
     class Context(ABC):
         Param = namedtuple("Param", ["name", "type", "default", "empty"])
@@ -127,15 +129,21 @@ class Pipe:
         def __init__(self, node=None):
             self.node = node
 
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
         @classmethod
-        def bind(cls, config, state, logger):
+        def bind(cls, stack, config, state, logger):
             # define a new sub-type of the user's context, make it concrete or it cannot be instantiated
-            sub = type(cls.__name__, (cls,), {"handle_param": None})
+            sub = type(cls.__name__, (cls,), {"handle_param": None, "logger": logger})
             bindings = {}
             for name, ann in cls.__annotations__.items():
                 if isinstance(ann, type):
                     if issubclass(ann, Pipe.Context):
-                        nested = ann.bind(config, state, logger)
+                        nested = ann.bind(stack, config, state, logger)
                         setattr(sub, name, nested)
                     continue
                 args = get_args(ann)
@@ -148,7 +156,7 @@ class Pipe:
                         bindings[name] = cls.Binding(node)
 
             setattr(sub, "__pipe_ctx_bindings__", bindings)
-            return sub()
+            return stack.enter_context(sub())
 
         @classmethod
         def get_binding(cls, name):
