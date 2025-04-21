@@ -75,7 +75,6 @@ class Pipe:
         self.name = name
         self.default = default
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.INFO)
         self.logger.propagate = False
 
     def __call__(self, func):
@@ -98,9 +97,20 @@ class Pipe:
     def run(self, config, state, dry_run, logger):
         from inspect import signature
 
+        sync_logger_config(self.logger, config)
+
+        params = signature(self.func).parameters
+
+        if not dry_run:
+            logger.debug(f"executing pipe '{self.name}'...")
+        elif "dry_run" in params:
+            logger.debug(f"dry executing pipe '{self.name}'...")
+        else:
+            logger.debug(f"not executing pipe '{self.name}'...")
+
         with ExitStack() as stack:
             kwargs = {}
-            for name, param in signature(self.func).parameters.items():
+            for name, param in params.items():
                 if name == "dry_run":
                     kwargs["dry_run"] = dry_run
                     continue
@@ -238,6 +248,21 @@ class Pipe:
                 set_node(state, node, value)
 
             return node, getter, setter if self.mutable else None
+
+
+def sync_logger_config(logger, config):
+    elastic_pipes_logger = logging.getLogger("elastic.pipes")
+    if logger == elastic_pipes_logger:
+        return
+    for handler in reversed(logger.handlers):
+        logger.removeHandler(handler)
+    for handler in elastic_pipes_logger.handlers:
+        logger.addHandler(handler)
+    level = get_node(config, "logging.level", None)
+    if level is None or getattr(elastic_pipes_logger, "overridden", False):
+        logger.setLevel(elastic_pipes_logger.level)
+    else:
+        logger.setLevel(level.upper())
 
 
 @Pipe("elastic.pipes")

@@ -14,51 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import sys
 from pathlib import Path
 
 import typer
 from typing_extensions import Annotated, List, Optional
 
-from .util import fatal, get_node, set_node, warn_interactive
+from .util import fatal, get_node, set_node, setup_logging, warn_interactive
 
 main = typer.Typer(pretty_exceptions_enable=False)
-
-
-def setup_logging(log_level):
-    import logging
-
-    # a single handler to rule them all
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter("%(name)s - %(message)s"))
-    # root of all the elastic.pipes.* loggers
-    logger = logging.getLogger("elastic.pipes")
-    # all the pipes sync their handlers with this
-    logger.addHandler(handler)
-
-    # all the pipes sync their log level with this, unless configured differently
-    if log_level is None:
-        logger.setLevel(logging.INFO)
-    else:
-        logger.setLevel(log_level.upper())
-        logger.info("log level is overridden by the command line")
-        logger.overridden = True
-
-
-def sync_logger_config(logger, config):
-    elastic_pipes_logger = logging.getLogger("elastic.pipes")
-    if logger == elastic_pipes_logger:
-        return
-    for handler in reversed(logger.handlers):
-        logger.removeHandler(handler)
-    for handler in elastic_pipes_logger.handlers:
-        logger.addHandler(handler)
-    level = get_node(config, "logging.level", None)
-    if level is None or getattr(elastic_pipes_logger, "overridden", False):
-        logger.setLevel(elastic_pipes_logger.level)
-    else:
-        logger.setLevel(level.upper())
 
 
 def parse_runtime_arguments(arguments):
@@ -87,14 +51,14 @@ def parse_runtime_arguments(arguments):
 def run(
     config_file: typer.FileText,
     dry_run: Annotated[bool, typer.Option()] = False,
-    log_level: Annotated[str, typer.Option(callback=setup_logging)] = None,
+    log_level: Annotated[str, typer.Option(callback=setup_logging("INFO"))] = None,
     arguments: Annotated[Optional[List[str]], typer.Option("--argument", "-a")] = None,
 ):
     """
     Run pipes
     """
+    import logging
     from importlib import import_module
-    from inspect import signature
 
     from . import Pipe, get_pipes
     from .errors import Error
@@ -153,17 +117,8 @@ def run(
             fatal(f"module does not define a pipe: {name}")
 
     for name, config in pipes:
-        pipe = Pipe.__pipes__[name]
-        sync_logger_config(pipe.logger, config)
-        if not dry_run:
-            logger.debug(f"executing pipe '{name}'...")
-        elif "dry_run" in signature(pipe.func).parameters:
-            logger.debug(f"dry executing pipe '{name}'...")
-        else:
-            logger.debug(f"not executing pipe '{name}'...")
-
         try:
-            pipe.run(config, state, dry_run, logger)
+            Pipe.find(name).run(config, state, dry_run, logger)
         except Error as e:
             fatal(e)
 

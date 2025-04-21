@@ -12,21 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import re
 
 import pytest
 from typing_extensions import Annotated, Any, get_args
+from util import logger
 
 from core import Pipe, get_pipes
 from core.errors import ConfigError, Error
 
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(name)s - %(message)s"))
 
-logger = logging.getLogger("elastic.pipes")
-logger.addHandler(handler)
-# logger.setLevel("DEBUG")
+def run(name, config, state, *, dry_run=False):
+    Pipe.find(name).run(config, state, dry_run, logger)
 
 
 def test_dry_run():
@@ -49,18 +46,18 @@ def test_dry_run():
         executions += 1
         assert dry_run is True
 
-    Pipe.find("test_no_dry_run").run({}, {}, False, logger)
+    run("test_no_dry_run", {}, {}, dry_run=False)
     assert executions == 1
 
     # if the pipe function does not have the `dry_run` argument,
     # then it's not executed on dry run
-    Pipe.find("test_no_dry_run").run({}, {}, True, logger)
+    run("test_no_dry_run", {}, {}, dry_run=True)
     assert executions == 1
 
-    Pipe.find("test_dry_run_false").run({}, {}, False, logger)
+    run("test_dry_run_false", {}, {}, dry_run=False)
     assert executions == 2
 
-    Pipe.find("test_dry_run_true").run({}, {}, True, logger)
+    run("test_dry_run_true", {}, {}, dry_run=True)
     assert executions == 3
 
 
@@ -101,19 +98,19 @@ def test_config():
 
     msg = "config node not found: 'name'"
     with pytest.raises(KeyError, match=msg):
-        Pipe.find("test_config").run({}, {}, False, logger)
+        run("test_config", {}, {})
 
-    Pipe.find("test_config").run({"name": "me"}, {}, False, logger)
+    run("test_config", {"name": "me"}, {})
 
     msg = re.escape("config node type mismatch: 'int' (expected 'str')")
     with pytest.raises(Error, match=msg):
-        Pipe.find("test_config").run({"name": 0}, {}, False, logger)
+        run("test_config", {"name": 0}, {})
 
-    Pipe.find("test_config_any").run({"name": 1}, {}, False, logger)
+    run("test_config_any", {"name": 1}, {})
 
     msg = re.escape("mutable default config values are not allowed: {}")
     with pytest.raises(TypeError, match=msg):
-        Pipe.find("test_config_mutable_default").run({}, {}, False, logger)
+        run("test_config_mutable_default", {}, {})
 
 
 def test_config_optional():
@@ -124,7 +121,7 @@ def test_config_optional():
     ):
         assert name == "me"
 
-    Pipe.find("test_config_optional").run({}, {}, False, logger)
+    run("test_config_optional", {}, {})
 
 
 def test_state():
@@ -151,19 +148,19 @@ def test_state():
 
     msg = "state node not found: 'name'"
     with pytest.raises(KeyError, match=msg):
-        Pipe.find("test_state").run({}, {}, False, logger)
+        run("test_state", {}, {})
 
-    Pipe.find("test_state").run({}, {"name": "me"}, False, logger)
+    run("test_state", {}, {"name": "me"})
 
     msg = re.escape("state node type mismatch: 'int' (expected 'str')")
     with pytest.raises(Error, match=msg):
-        Pipe.find("test_state").run({}, {"name": 0}, False, logger)
+        run("test_state", {}, {"name": 0})
 
-    Pipe.find("test_state_any").run({}, {"name": 1}, False, logger)
+    run("test_state_any", {}, {"name": 1})
 
     msg = re.escape("mutable default state values are not allowed: {}")
     with pytest.raises(TypeError, match=msg):
-        Pipe.find("test_state_mutable_default").run({}, {}, False, logger)
+        run("test_state_mutable_default", {}, {})
 
 
 def test_ctx():
@@ -225,43 +222,43 @@ def test_ctx():
 
     msg = "config node not found: 'name'"
     with pytest.raises(KeyError, match=msg):
-        Pipe.find("test_ctx").run({}, {}, False, logger)
+        run("test_ctx", {}, {})
 
     msg = "state node not found: 'user.name'"
     with pytest.raises(KeyError, match=msg):
-        Pipe.find("test_ctx").run({"name": "me"}, {}, False, logger)
+        run("test_ctx", {"name": "me"}, {})
 
     msg = "cannot specify both 'name' and 'name@'"
     with pytest.raises(ConfigError, match=msg):
-        Pipe.find("test_ctx").run({"name": "me", "name@": "name"}, {}, False, logger)
+        run("test_ctx", {"name": "me", "name@": "name"}, {})
 
     msg = re.escape("config node type mismatch: 'int' (expected 'str')")
     with pytest.raises(Error, match=msg):
-        Pipe.find("test_ctx").run({"name": 0}, {}, False, logger)
+        run("test_ctx", {"name": 0}, {})
 
-    Pipe.find("test_ctx").run({"name": "me"}, {"user": {"name": "you"}}, False, logger)
-    Pipe.find("test_ctx_nested").run({"name": "me"}, {"user": {"name": "you"}}, False, logger)
-
-    msg = "can't set attribute"
-    with pytest.raises(AttributeError, match=msg):
-        Pipe.find("test_ctx_set").run({"name": 0}, {}, False, logger)
+    run("test_ctx", {"name": "me"}, {"user": {"name": "you"}})
+    run("test_ctx_nested", {"name": "me"}, {"user": {"name": "you"}})
 
     msg = "can't set attribute"
     with pytest.raises(AttributeError, match=msg):
-        Pipe.find("test_ctx_nested_set").run({"name": 0}, {}, False, logger)
+        run("test_ctx_set", {"name": 0}, {})
+
+    msg = "can't set attribute"
+    with pytest.raises(AttributeError, match=msg):
+        run("test_ctx_nested_set", {"name": 0}, {})
 
     config = {"name": "me"}
     state = {}
-    Pipe.find("test_ctx_set2").run(config, state, False, logger)
+    run("test_ctx_set2", config, state)
     assert state == {"user": {"name": "me"}}
 
     config = {"name": "me"}
     state = {}
-    Pipe.find("test_ctx_nested_set2").run(config, state, False, logger)
+    run("test_ctx_nested_set2", config, state)
     assert state == {"user": {"name": "me"}}
 
     assert not contexts
-    Pipe.find("test_ctx_managed").run({}, {}, False, logger)
+    run("test_ctx_managed", {}, {})
     assert not contexts
 
 
@@ -273,7 +270,7 @@ def test_state_optional():
     ):
         assert name == "me"
 
-    Pipe.find("test_state_optional").run({}, {}, False, logger)
+    run("test_state_optional", {}, {})
 
 
 def test_state_indirect():
@@ -284,8 +281,8 @@ def test_state_indirect():
     ):
         assert name == "me"
 
-    Pipe.find("test_state_indirect_me").run({}, {"name": "me"}, False, logger)
-    Pipe.find("test_state_indirect_me").run({"name@": "username"}, {"username": "me", "name": "you"}, False, logger)
+    run("test_state_indirect_me", {}, {"name": "me"})
+    run("test_state_indirect_me", {"name@": "username"}, {"username": "me", "name": "you"})
 
     @Pipe("test_state_indirect_you")
     def _(
@@ -294,7 +291,7 @@ def test_state_indirect():
     ):
         assert name == "you"
 
-    Pipe.find("test_state_indirect_you").run({"name": "username"}, {"username": "me", "name": "you"}, False, logger)
+    run("test_state_indirect_you", {"name": "username"}, {"username": "me", "name": "you"})
 
     @Pipe("test_state_indirect_us")
     def _(
@@ -303,7 +300,7 @@ def test_state_indirect():
     ):
         assert name == "us"
 
-    Pipe.find("test_state_indirect_us").run({}, {"name": "us", "username": "them"}, False, logger)
+    run("test_state_indirect_us", {}, {"name": "us", "username": "them"})
 
     @Pipe("test_state_indirect_them")
     def _(
@@ -312,7 +309,7 @@ def test_state_indirect():
     ):
         assert name == "them"
 
-    Pipe.find("test_state_indirect_them").run({"user@": "username"}, {"name": "us", "username": "them"}, False, logger)
+    run("test_state_indirect_them", {"user@": "username"}, {"name": "us", "username": "them"})
 
 
 def test_get_pipes():

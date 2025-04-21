@@ -19,7 +19,13 @@ import sys
 
 from . import get_pipes
 from .errors import Error
-from .util import deserialize_yaml, fatal, serialize_yaml, warn_interactive
+from .util import (
+    deserialize_yaml,
+    fatal,
+    serialize_yaml,
+    setup_logging,
+    warn_interactive,
+)
 
 
 def receive_state_from_unix_pipe(logger, default):
@@ -50,19 +56,10 @@ def run(pipe):
 
     def _main(
         dry_run: Annotated[bool, typer.Option()] = False,
-        log_level: Annotated[str, typer.Option()] = None,
+        log_level: Annotated[str, typer.Option(callback=setup_logging("DEBUG"))] = None,
         interactive: Annotated[bool, typer.Option("--interactive", "-i", help="Allow entering the state via terminal.")] = False,
     ):
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(name)s - %(message)s"))
-        pipe.logger.addHandler(handler)
-
-        if log_level is None:
-            pipe.logger.setLevel(logging.DEBUG)
-        else:
-            pipe.logger.setLevel(log_level.upper())
-            pipe.logger.info("log level is overridden by the command line")
-            pipe.logger.overridden = True
+        logger = logging.getLogger("elastic.pipes.core")
 
         if sys.stdin.isatty() and not interactive:
             fatal("This is an Elastic Pipes component, use the `-i` option to execute it interactively.")
@@ -75,7 +72,7 @@ def run(pipe):
 
         configs = [c for n, c in pipes if n == pipe.name]
         config = configs[0] if configs else {}
-        ret = pipe.run(config, state, dry_run, pipe.logger)
+        ret = pipe.run(config, state, dry_run, logger)
         send_state_to_unix_pipe(pipe.logger, state)
         return ret
 

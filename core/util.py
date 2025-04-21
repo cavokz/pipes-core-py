@@ -228,3 +228,31 @@ def is_mutable(value):
     except TypeError:
         return True
     return False
+
+
+def setup_logging(default_level="NOTSET"):
+    import logging
+
+    formatter = logging.Formatter("%(name)s - %(message)s")
+
+    # a single handler to rule them all
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+
+    # root of all the elastic pipes loggers
+    logger = logging.getLogger("elastic.pipes")
+
+    # all the pipes sync their handlers with this
+    logger.addHandler(handler)
+
+    def _handler(level):
+        # all the pipes sync their log level with this, unless configured differently
+        if level is None:
+            logger.setLevel(default_level)
+        else:
+            logger.setLevel(level.upper() if isinstance(level, str) else level)
+            logger.overridden = True
+
+        return logger.level
+
+    return _handler
