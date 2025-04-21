@@ -12,21 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 import re
 
 import pytest
 from typing_extensions import Annotated, Any, get_args
+from util import logger
 
 from core import Pipe, get_pipes
 from core.errors import ConfigError, Error
-
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(name)s - %(message)s"))
-
-logger = logging.getLogger("elastic.pipes")
-logger.addHandler(handler)
-# logger.setLevel("DEBUG")
 
 
 def run(name, config, state, *, dry_run=False):

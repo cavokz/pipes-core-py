@@ -12,16 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 from core.runner import parse_runtime_arguments
-
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(name)s - %(message)s"))
-
-logger = logging.getLogger("elastic.pipes")
-logger.addHandler(handler)
-# logger.setLevel("DEBUG"
 
 
 def test_parse_runtime_arguments():

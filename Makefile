@@ -13,7 +13,7 @@ ifeq ($(USERNAME),)
 	USERNAME := $(USER)
 endif
 
-PYTEST_FLAGS_ := $(strip $(if $(filter-out 0,$(V)),-v -s,-q) $(PYTEST_FLAGS))
+PYTEST_FLAGS_ := $(strip $(if $(filter-out 0,$(V)),$(if $(filter-out 1,$(V)),$(if $(filter-out 2,$(V)),-vvv,-vv),-v) -s,-q) $(PYTEST_FLAGS))
 
 all: lint
 
