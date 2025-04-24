@@ -41,7 +41,7 @@ def parse_runtime_arguments(arguments):
             continue
         try:
             value = ast.literal_eval(value)
-        except ValueError:
+        except Exception:
             pass
         set_node(args, name, value)
 
