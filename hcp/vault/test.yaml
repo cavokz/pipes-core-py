@@ -16,5 +16,8 @@ pipes:
   - elastic.pipes.core.export:
       node@: secret-out.data
 
-secret-in: {}
-secret-out: {}
+secret-in:
+  data: {}
+
+secret-out:
+  data: {}

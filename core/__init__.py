@@ -173,6 +173,10 @@ class Pipe:
                         binding, getter, setter = ann.handle_param(param, config, state, logger)
                         setattr(sub, name, property(getter, setter))
                         bindings[name] = binding
+                        try:
+                            getter(None)
+                        except KeyError as e:
+                            raise Error(e.args[0])
 
             setattr(sub, "__pipe_ctx_bindings__", bindings)
             return stack.enter_context(sub())

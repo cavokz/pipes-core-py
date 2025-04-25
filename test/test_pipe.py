@@ -193,6 +193,10 @@ def test_ctx():
     class TestImmutableMutableContext(Pipe.Context):
         names: Annotated[list, Pipe.State("names")]
 
+    class TestConflictingContext(Pipe.Context):
+        name: Annotated[str, Pipe.State("name")]
+        names: Annotated[list, Pipe.State("name")]
+
     @Pipe("test_ctx")
     def _(ctx: TestContext):
         assert ctx.name == "me"
@@ -233,12 +237,16 @@ def test_ctx():
         assert contexts == ["inner", "outer"]
         contexts.append("exit")
 
+    @Pipe("test_ctx_conflict")
+    def _(ctx: TestConflictingContext):
+        pass
+
     msg = "param 'name': config node not found: 'name'"
-    with pytest.raises(KeyError, match=msg):
+    with pytest.raises(Error, match=msg):
         run("test_ctx", {}, {})
 
     msg = "param 'user': state node not found: 'user.name'"
-    with pytest.raises(KeyError, match=msg):
+    with pytest.raises(Error, match=msg):
         run("test_ctx", {"name": "me"}, {})
 
     msg = "param 'name': config cannot specify both 'name' and 'name@'"
@@ -258,34 +266,40 @@ def test_ctx():
 
     msg = "param 'user' is not mutable"
     with pytest.raises(AttributeError, match=msg):
-        run("test_ctx_nested_set2", {}, {})
-
-    config = {}
-    state = {}
-    run("test_ctx_set", config, state)
-    assert config == {"name": "you"}
-    assert not state
-
-    config = {"name@": "user"}
-    state = {"user": "me"}
-    run("test_ctx_set", config, state)
-    assert config == {"name": "you"}
-    assert state == {"user": "me"}
-
-    config = {}
-    state = {}
-    run("test_ctx_nested_set", config, state)
-    assert config == {"name": "you"}
-    assert not state
+        run("test_ctx_nested_set2", {"name": "me"}, {"user": {"name": "me"}})
 
     config = {"name": "me"}
-    state = {}
+    state = {"user": {"name": "you"}}
+    run("test_ctx_set", config, state)
+    assert config == {"name": "you"}
+    assert state == {"user": {"name": "you"}}
+
+    config = {"name@": "user.name"}
+    state = {"user": {"name": "you"}}
+    run("test_ctx_set", config, state)
+    assert config == {"name": "you"}
+    assert state == {"user": {"name": "you"}}
+
+    config = {"name": "me"}
+    state = {"user": {"name": "you"}}
+    run("test_ctx_nested_set", config, state)
+    assert config == {"name": "you"}
+    assert state == {"user": {"name": "you"}}
+
+    config = {"name": "me"}
+    state = {"user": {"name": "you"}}
     run("test_ctx_set2", config, state)
     assert state == {"user": {"name": "me"}}
 
+    config = {"name": "me"}
+    state = {"user": {"name": "you"}}
     assert not contexts
-    run("test_ctx_managed", {}, {})
+    run("test_ctx_managed", config, state)
     assert not contexts
+
+    msg = re.escape("param 'names': state node 'name' type mismatch: 'str' (expected 'list')")
+    with pytest.raises(Error, match=msg):
+        run("test_ctx_conflict", {}, {"name": "me"})
 
 
 def test_state_optional():

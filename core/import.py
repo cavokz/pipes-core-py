@@ -25,7 +25,7 @@ from .util import deserialize, fatal, warn_interactive
 
 
 class Ctx(Pipe.Context):
-    base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = Path.cwd()
+    base_dir: Annotated[str, Pipe.State("runtime.base-dir")] = str(Path.cwd())
     file_name: Annotated[str, Pipe.Config("file")] = None
     format: Annotated[str, Pipe.Config("format")] = None
     state: Annotated[Any, Pipe.State(None, indirect="node", mutable=True)]
