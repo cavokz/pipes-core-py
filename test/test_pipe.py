@@ -17,10 +17,11 @@ from contextlib import ExitStack
 
 import pytest
 from typing_extensions import Annotated, Any, get_args
-from util import logger
 
 from core import Pipe, get_pipes
 from core.errors import ConfigError, Error
+
+from .util import logger
 
 
 def run(name, config, state, *, dry_run=False):
