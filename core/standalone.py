@@ -128,7 +128,7 @@ def help_message(pipe):
     if notes:
         print(_render_notes(notes))
     print()
-    print("This is an Elastic Pipes component, use the `-i` option to execute it interactively.")
+    print("Use the [bold green]-p[/bold green] option to execute UNIX pipe mode.")
 
 
 def run(pipe):
@@ -138,11 +138,19 @@ def run(pipe):
     def _main(
         dry_run: Annotated[bool, typer.Option()] = False,
         log_level: Annotated[str, typer.Option(callback=setup_logging("DEBUG"))] = None,
-        interactive: Annotated[bool, typer.Option("--interactive", "-i", help="Allow entering the state via terminal.")] = False,
+        pipe_mode: Annotated[
+            bool,
+            typer.Option(
+                "--pipe-mode",
+                "-p",
+                rich_help_panel="UNIX pipe mode",
+                help="Read state from standard input and write state to standard output. This is the default mode when executed in a UNIX pipe.",
+            ),
+        ] = False,
     ):
         logger = logging.getLogger("elastic.pipes.core")
 
-        if sys.stdin.isatty() and not interactive:
+        if sys.stdin.isatty() and not pipe_mode:
             help_message(pipe)
             sys.exit(1)
 
