@@ -1,4 +1,4 @@
-#!/usr/bin/env elastic-pipes run
+#!/usr/bin/env -S elastic-pipes run
 
 pipes:
   - elastic.pipes.core.import:

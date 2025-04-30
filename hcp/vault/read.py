@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 
+import sys
 from logging import Logger
 
 import hvac
 from elastic.pipes.core import Pipe
-from elastic.pipes.core.util import fatal
 from typing_extensions import Annotated
 
-from .common import update_url_token_from_env
+from .common import Context
 
 
 @Pipe("elastic.pipes.hcp.vault.read")
 def main(
     log: Logger,
+    ctx: Context,
     path: Annotated[
         str,
         Pipe.Config("path"),
@@ -23,31 +24,25 @@ def main(
         Pipe.State("vault", mutable=True),
         Pipe.Help("state node destination of the data"),
     ],
-    url: Annotated[
-        str,
-        Pipe.Config("url"),
-        Pipe.Help("URL of the Vault instance"),
-        Pipe.Notes("default: from environment VAULT_ADDR"),
-    ] = None,
-    token: Annotated[
-        str,
-        Pipe.Config("token"),
-        Pipe.Help("Vault API authentication token"),
-        Pipe.Notes("default: from environment VAULT_TOKEN"),
-    ] = None,
 ):
     """Read data from an HCP Vault instance."""
 
-    log.info(f"path: {path}")
-    url, token = update_url_token_from_env(url, token, log)
+    log.info(f"reading from path '{path}'")
 
-    vc = hvac.Client(url=url, token=token)
-    if not vc.is_authenticated():
-        fatal("vault could not authenticate")
+    vc = hvac.Client(url=ctx.url, token=ctx.token)
+
+    try:
+        if not vc.is_authenticated():
+            log.error("Vault could not authenticate")
+            sys.exit(1)
+    except Exception as e:
+        log.error(e)
+        sys.exit(1)
 
     res = vc.read(path)
     if res is None:
-        fatal(f"could not find Vault path: '{path}'")
+        log.error(f"could not read path: '{path}'")
+        sys.exit(1)
 
     vault.clear()
     vault.update(res["data"])
