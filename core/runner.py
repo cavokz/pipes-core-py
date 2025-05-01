@@ -53,7 +53,7 @@ def run(
     config_file: typer.FileText,
     dry_run: Annotated[bool, typer.Option()] = False,
     log_level: Annotated[str, typer.Option(callback=setup_logging("INFO"))] = None,
-    arguments: Annotated[Optional[List[str]], typer.Option("--argument", "-a")] = None,
+    arguments: Annotated[Optional[List[str]], typer.Option("--argument", "-a", help="Pass an argument to the Pipes runtime.")] = None,
 ):
     """
     Run pipes
@@ -93,7 +93,7 @@ def run(
     )
 
     if arguments:
-        state["runtime"]["arguments"] = parse_runtime_arguments(arguments)
+        state["runtime"].setdefault("arguments", {}).update(parse_runtime_arguments(arguments))
 
     pipes = get_pipes(state)
 
