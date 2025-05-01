@@ -93,7 +93,7 @@ def run(
     )
 
     if arguments:
-        state["runtime"]["arguments"] = parse_runtime_arguments(arguments)
+        state["runtime"].setdefault("arguments", {}).update(parse_runtime_arguments(arguments))
 
     pipes = get_pipes(state)
 
