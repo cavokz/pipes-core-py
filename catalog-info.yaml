@@ -47,7 +47,7 @@ spec:
       name: pipes-public-py
       description: Test public Elastic Pipes components that need a Cloud Org
     spec:
-      repository: elastic/pipes-public-py
+      repository: elastic/pipes-py
       pipeline_file: ".buildkite/pipelines/public.yml"
       teams:
         security-engineering-productivity:
