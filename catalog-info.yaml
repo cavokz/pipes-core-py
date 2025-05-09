@@ -20,7 +20,7 @@ spec:
       description: Test public Elastic Pipes components
     spec:
       repository: elastic/pipes-py
-      pipeline_file: ".buildkite/pipeline.yml"
+      pipeline_file: ".buildkite/pipelines/main.yml"
       teams:
         security-engineering-productivity:
           access_level: MANAGE_BUILD_AND_READ
