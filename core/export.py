@@ -25,10 +25,6 @@ from .util import serialize
 
 
 class Ctx(Pipe.Context):
-    base_dir: Annotated[
-        str,
-        Pipe.State("runtime.base-dir"),
-    ] = str(Path.cwd())
     file_name: Annotated[
         str,
         Pipe.Config("file"),
@@ -71,7 +67,7 @@ def main(ctx: Ctx, log: Logger, dry_run: bool):
     log.info(f"exporting {msg_state} to {msg_file_name}...")
 
     if ctx.file_name:
-        with open(Path(ctx.base_dir) / ctx.file_name, "w") as f:
+        with open(ctx.file_name, "w") as f:
             serialize(f, ctx.state, format=format)
     else:
         serialize(sys.stdout, ctx.state, format=format)
