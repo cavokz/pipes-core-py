@@ -10,6 +10,7 @@
         "actions/download-artifact",
         "actions/setup-python",
         "actions/upload-artifact",
+        "hashicorp/vault",
         "pypa/gh-action-pypi-publish"
       ],
       "automerge": true
