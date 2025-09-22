@@ -319,3 +319,35 @@ def walk_params(pipe):
 
     for param in signature(pipe.func).parameters.values():
         yield from _walk_ann(param.annotation, param.default, param.empty)
+
+
+def walk_config_nodes(pipes, prefix):
+    """Visit all the config nodes that refer to a state node having the given prefix."""
+
+    from . import Pipe, _indirect
+
+    def _get_name(config, indirect):
+        if has_node(config, _indirect(indirect)):
+            node = get_node(config, _indirect(indirect))
+            if node.startswith(prefix):
+                return node
+
+    for pipe, config in pipes:
+        for node, _type, help, notes, default, empty in walk_params(pipe):
+            if isinstance(node, Pipe.Config):
+                indirect = node.node
+                if arg_name := _get_name(config, indirect):
+                    yield pipe, "config", node, help, notes, _type, indirect, arg_name
+            elif isinstance(node, Pipe.State) and node.indirect:
+                indirect = node.node if node.indirect is True else node.indirect
+                if arg_name := _get_name(config, indirect):
+                    yield pipe, "state", node, help, notes, _type, indirect, arg_name
+
+
+def walk_args_env(pipes, args_env):
+    """Visit all the config nodes that refer to an argument or an environment variable."""
+
+    prefix = f"runtime.{args_env}."
+    prefix_len = len(prefix)
+    for _, _, _, _, _, _type, _, name in walk_config_nodes(pipes, prefix):
+        yield name[prefix_len:], _type

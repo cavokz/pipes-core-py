@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import sys
 from contextlib import ExitStack
 from pathlib import Path
@@ -21,35 +22,47 @@ from pathlib import Path
 import typer
 from typing_extensions import Annotated, List, Optional
 
-from .util import fatal, get_node, set_node, setup_logging, warn_interactive
+from .util import fatal, get_node, setup_logging
 
 main = typer.Typer(pretty_exceptions_enable=False)
 
 
 def parse_runtime_arguments(arguments):
+    for arg in arguments or []:
+        name, *value = arg.split("=")
+        yield name, "=".join(value)
+
+
+def configure_runtime_args_env(runtime, args_env, values, pipes, logger):
     import ast
 
-    args = {}
-    for arg in arguments:
-        name, *value = arg.split("=")
-        if not value:
-            set_node(args, name, None)
-            continue
-        value = value[0]
-        if not value:
-            set_node(args, name, None)
-            continue
-        try:
-            value = ast.literal_eval(value)
-        except Exception:
-            pass
-        set_node(args, name, value)
+    from .util import set_node, walk_args_env
 
-    return args
+    for name, type in sorted(walk_args_env(pipes, args_env)):
+        value = values.get(name) or None
+        if value is not None:
+            if type is not str:
+                try:
+                    value = ast.literal_eval(value)
+                except Exception:
+                    pass
+            logger.debug(f"  {name}: {value}")
+            set_node(runtime.setdefault(args_env, {}), name, value)
 
 
-def configure_runtime(state, config_file, arguments, logger):
-    if config_file.name == "<stdin>":
+def configure_runtime_arguments(runtime, arguments, pipes, logger):
+    logger.debug("reading command line arguments")
+    arguments = dict(parse_runtime_arguments(arguments))
+    configure_runtime_args_env(runtime, "arguments", arguments, pipes, logger)
+
+
+def configure_runtime_environment(runtime, environment, pipes, logger):
+    logger.debug("reading environment variables")
+    configure_runtime_args_env(runtime, "environment", environment, pipes, logger)
+
+
+def configure_runtime(state, config_file, arguments, environment, logger):
+    if config_file is sys.stdin:
         base_dir = Path.cwd()
     else:
         base_dir = Path(config_file.name).parent
@@ -66,8 +79,10 @@ def configure_runtime(state, config_file, arguments, logger):
         }
     )
 
-    if arguments:
-        state["runtime"].setdefault("arguments", {}).update(parse_runtime_arguments(arguments))
+    pipes = load_pipes(state, logger)
+    configure_runtime_arguments(state["runtime"], arguments, pipes, logger)
+    configure_runtime_environment(state["runtime"], environment, pipes, logger)
+    return pipes
 
 
 def load_pipes(state, logger):
@@ -113,7 +128,7 @@ def run(
     import logging
 
     from .errors import Error
-    from .util import deserialize_yaml
+    from .util import deserialize_yaml, warn_interactive
 
     logger = logging.getLogger("elastic.pipes.core")
 
@@ -126,8 +141,7 @@ def run(
     if not state:
         fatal("invalid configuration, it's empty")
 
-    configure_runtime(state, config_file, arguments, logger)
-    pipes = load_pipes(state, logger)
+    pipes = configure_runtime(state, config_file, arguments, os.environ, logger)
 
     for pipe, config in pipes:
         try:
@@ -170,7 +184,11 @@ from typing_extensions import Annotated
 @Pipe("{pipe_file.stem}", default={{}}, notes="Use this example pipe as starting point for yours.")
 def main(
     log: Logger,
-    name: Annotated[str, Pipe.State("name"), Pipe.Help("to whom say hello")] = "world",
+    name: Annotated[
+        str,
+        Pipe.State("name"),
+        Pipe.Help("to whom say hello"),
+    ] = "world",
     dry_run: bool = False,
 ):
     \"\"\"Say hello to someone.\"\"\"
