@@ -15,6 +15,7 @@
 """Elastic Pipes component to import data into the Pipes state."""
 
 import sys
+from contextlib import ExitStack
 from logging import Logger
 from pathlib import Path
 
@@ -49,14 +50,26 @@ class Ctx(Pipe.Context):
         Pipe.Config("interactive"),
         Pipe.Help("allow importing data from the terminal"),
     ] = False
+    streaming: Annotated[
+        bool,
+        Pipe.Config("streaming"),
+        Pipe.Help("allow importing data incrementally"),
+    ] = False
+    in_memory_state: Annotated[
+        bool,
+        Pipe.State("runtime.in-memory-state"),
+    ] = False
 
     def __init__(self):
         if not self.file_name and sys.stdin.isatty() and not self.interactive:
             raise ConfigError("to use `elastic.pipes.core.import` interactively, set `interactive: true` in its configuration.")
 
+        if self.streaming and not self.in_memory_state:
+            raise ConfigError("cannot use streaming import in UNIX pipe mode")
+
 
 @Pipe("elastic.pipes.core.import")
-def main(ctx: Ctx, log: Logger, dry_run: bool):
+def main(ctx: Ctx, stack: ExitStack, log: Logger, dry_run: bool):
     """Import data from file or standard input."""
 
     format = ctx.format
@@ -77,12 +90,12 @@ def main(ctx: Ctx, log: Logger, dry_run: bool):
     log.info(f"importing {msg_state} from {msg_file_name}...")
 
     if ctx.file_name:
-        with Path(ctx.file_name).expanduser().open("r") as f:
-            warn_interactive(f)
-            ctx.state = deserialize(f, format=format) or {}
+        f = stack.enter_context(Path(ctx.file_name).expanduser().open("r"))
     else:
-        warn_interactive(sys.stdin)
-        ctx.state = deserialize(sys.stdin, format=format) or {}
+        f = sys.stdin
+
+    warn_interactive(f)
+    ctx.state = deserialize(f, format=format, streaming=ctx.streaming) or {}
 
 
 if __name__ == "__main__":

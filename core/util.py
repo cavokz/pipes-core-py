@@ -148,7 +148,7 @@ def serialize_yaml(file, state):
     yaml.dump(state, file, Dumper=Dumper)
 
 
-def deserialize_yaml(file):
+def deserialize_yaml(file, *, streaming=False):
     import yaml
 
     try:
@@ -156,6 +156,9 @@ def deserialize_yaml(file):
         from yaml import CLoader as Loader
     except ImportError:
         from yaml import Loader
+
+    if streaming:
+        raise ConfigError("cannot stream yaml (try ndjson)")
 
     return yaml.load(file, Loader=Loader)
 
@@ -166,8 +169,11 @@ def serialize_json(file, state):
     file.write(json.dumps(state) + "\n")
 
 
-def deserialize_json(file):
+def deserialize_json(file, *, streaming=False):
     import json
+
+    if streaming:
+        raise ConfigError("cannot stream json (try ndjson)")
 
     return json.load(file)
 
@@ -179,8 +185,11 @@ def serialize_ndjson(file, state):
         file.write(json.dumps(elem) + "\n")
 
 
-def deserialize_ndjson(file):
+def deserialize_ndjson(file, *, streaming=False):
     import json
+
+    if streaming:
+        return (json.loads(line) for line in file)
 
     return [json.loads(line) for line in file]
 
@@ -196,13 +205,13 @@ def serialize(file, state, *, format):
         raise ConfigError(f"unsupported format: {format}")
 
 
-def deserialize(file, *, format):
+def deserialize(file, *, format, streaming=False):
     if format in ("yaml", "yml"):
-        state = deserialize_yaml(file)
+        state = deserialize_yaml(file, streaming=streaming)
     elif format == "json":
-        state = deserialize_json(file)
+        state = deserialize_json(file, streaming=streaming)
     elif format == "ndjson":
-        state = deserialize_ndjson(file)
+        state = deserialize_ndjson(file, streaming=streaming)
     else:
         raise ConfigError(f"unsupported format: {format}")
     return state
