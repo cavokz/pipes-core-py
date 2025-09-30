@@ -1,3 +1,21 @@
+## v0.7.0 - Oct 1, 2025
+
+* Allow the import pipe to lazy import data from ndjson files so to allow
+  incremental documents loading.
+* Allow referring to environment variables from a pipes script.
+* Improve the formatting of the `elastic-pipe new-pipe` generated pipe.
+* Add switch to make stand-alone pipes describe themselves.
+* Add switch to make pipes scripts describe themselves.
+* Accept null `api_key` and `username`/`password` in the stack configuration.
+* Make import/export pipes expand the user directory.
+* Make import/export pipes base relative file paths onto the caller current
+  directory, not the script's one.
+* Detect unknown config nodes.
+* Establish a context common to all the pipes (ex. for setting logging level).
+* Prevent state nodes in the `runtime.` tree from being indirectable.
+* Add BuildKite pipelines for testing also with internal resources.
+* HCP Vault: add `token-file` configuration to the read and write pipes.
+
 ## v0.6.0 - May 1, 2025
 
 * Make of Pipe.Context a real Python context manager, it can be used to
