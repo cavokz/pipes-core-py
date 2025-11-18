@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Helper class for accessing the Kibana REST API."""
+"""Kibana REST API client.
+
+Provides a minimal Python client for interacting with the Kibana HTTP API,
+supporting authentication, saved objects, and API endpoints.
+"""
 
 import json
 import uuid
@@ -21,11 +25,33 @@ import requests
 
 
 class Kibana:
-    """Minimal (unofficial) Kibana REST API Python client"""
+    """Kibana REST API client.
+
+    Supports connection via URL or Cloud ID, with API key or basic auth.
+    Provides methods for accessing Kibana endpoints and saved objects.
+
+    Attributes:
+        url: Kibana base URL.
+        session: Requests session with configured auth and headers.
+        exceptions: Alias to requests.exceptions for convenience.
+    """
 
     exceptions = requests.exceptions
 
     def __init__(self, url=None, cloud_id=None, basic_auth=None, api_key=None, verify_certs=True, ca_certs=None):
+        """Initialize Kibana client.
+
+        Args:
+            url: Kibana URL (e.g., "https://localhost:5601").
+            cloud_id: Elastic Cloud ID (alternative to url).
+            basic_auth: Tuple of (username, password).
+            api_key: API key string.
+            verify_certs: If False, disable SSL verification.
+            ca_certs: Path to CA certificate bundle.
+
+        Raises:
+            ValueError: If neither url nor cloud_id provided, or if they conflict.
+        """
         if not (url or cloud_id):
             raise ValueError("Either `url` or `cloud_id` must be defined")
 
@@ -66,9 +92,15 @@ class Kibana:
             self.url = url_from_cloud
 
     def close(self):
+        """Close the session and release resources."""
         self.session.close()
 
     def ping(self):
+        """Test connectivity to Kibana.
+
+        Returns:
+            True if Kibana is reachable, False otherwise.
+        """
         try:
             self.status()
             return True

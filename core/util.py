@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Helper functions for the Elastic Pipes implementation."""
+"""Utility functions for node access, serialization, and introspection.
+
+Provides functions for navigating nested dictionaries using dot-separated
+paths, serializing/deserializing state in multiple formats, and walking
+pipe parameter definitions.
+"""
 
 import os
 import re
@@ -29,6 +34,15 @@ else:
     from itertools import islice
 
     def batched(iterable, chunk_size):
+        """Batch iterable into chunks of specified size.
+
+        Args:
+            iterable: Input iterable to batch.
+            chunk_size: Size of each batch.
+
+        Yields:
+            Lists of up to chunk_size elements.
+        """
         iterator = iter(iterable)
         while chunk := list(islice(iterator, chunk_size)):
             yield chunk
@@ -43,6 +57,15 @@ _extract_path_pattern = re.compile(r"""'([^']+)'|"([^"]+)"|([^.'"]+)""")
 
 
 def get_es_client(stack):
+    """Create Elasticsearch client from configuration.
+
+    Args:
+        stack: Configuration dictionary containing elasticsearch.url and
+            credentials (api-key or username/password).
+
+    Returns:
+        Configured Elasticsearch client instance.
+    """
     from elasticsearch import Elasticsearch
 
     shell_expand = get_node(stack, "shell-expand", False)
@@ -61,6 +84,15 @@ def get_es_client(stack):
 
 
 def get_kb_client(stack):
+    """Create Kibana client from configuration.
+
+    Args:
+        stack: Configuration dictionary containing kibana.url and
+            credentials (api-key or username/password).
+
+    Returns:
+        Configured Kibana client instance.
+    """
     from .kibana import Kibana
 
     shell_expand = get_node(stack, "shell-expand", False)
@@ -79,6 +111,17 @@ def get_kb_client(stack):
 
 
 def split_path(path):
+    """Split dot-separated path into list of keys.
+
+    Args:
+        path: Dot-separated string like "elasticsearch.url" or None.
+
+    Returns:
+        Tuple of path components, or empty tuple if path is None.
+
+    Raises:
+        Error: If path is not a string or contains empty components.
+    """
     if path is None:
         return ()
     if not isinstance(path, str):
@@ -117,6 +160,15 @@ def quote_path_segment(segment):
 
 
 def has_node(dict, path):
+    """Check if node exists at path in dictionary.
+
+    Args:
+        dict: Dictionary to search.
+        path: Dot-separated path string.
+
+    Returns:
+        True if path exists and has a value, False otherwise.
+    """
     keys = split_path(path)
     for key in keys:
         if not isinstance(dict, Mapping):
@@ -129,6 +181,23 @@ def has_node(dict, path):
 
 
 def get_node(dict, path, default=NoDefault, *, default_action=None, shell_expand=False):
+    """Retrieve value at path in nested dictionary.
+
+    Args:
+        dict: Dictionary to search.
+        path: Dot-separated path string, or None for whole dict.
+        default: Default value if path not found. If NoDefault, raises KeyError.
+        default_action: Callable returning default value. Overrides default parameter.
+        shell_expand: If True, pass value through shell expansion.
+
+    Returns:
+        Value at path, or default if not found.
+
+    Raises:
+        KeyError: If path not found and no default provided.
+        Error: If path traverses through non-mapping value.
+        ShellExpansionError: If shell_expand fails.
+    """
     if default_action is None:
 
         def default_action():
@@ -156,6 +225,20 @@ def get_node(dict, path, default=NoDefault, *, default_action=None, shell_expand
 
 
 def set_node(dict, path, value):
+    """Set value at path in nested dictionary.
+
+    Creates intermediate dictionaries as needed. If path is None,
+    replaces entire dict contents with value.
+
+    Args:
+        dict: Dictionary to modify.
+        path: Dot-separated path string, or None.
+        value: Value to set.
+
+    Raises:
+        Error: If path traverses through non-mapping value, or if setting
+            root with non-mapping value.
+    """
     keys = split_path(path)
     for i, key in enumerate(keys[:-1]):
         if not isinstance(dict, Mapping):
@@ -173,6 +256,12 @@ def set_node(dict, path, value):
 
 
 def serialize_yaml(file, state):
+    """Serialize state to YAML format.
+
+    Args:
+        file: File object to write to.
+        state: Data structure to serialize.
+    """
     import yaml
 
     try:
@@ -185,6 +274,18 @@ def serialize_yaml(file, state):
 
 
 def deserialize_yaml(file, *, streaming=False):
+    """Deserialize YAML format to Python objects.
+
+    Args:
+        file: File object to read from.
+        streaming: If True, raises ConfigError (YAML doesn't support streaming).
+
+    Returns:
+        Deserialized data structure.
+
+    Raises:
+        ConfigError: If streaming=True.
+    """
     import yaml
 
     try:
@@ -200,12 +301,30 @@ def deserialize_yaml(file, *, streaming=False):
 
 
 def serialize_json(file, state):
+    """Serialize state to JSON format.
+
+    Args:
+        file: File object to write to.
+        state: Data structure to serialize.
+    """
     import json
 
     file.write(json.dumps(state) + "\n")
 
 
 def deserialize_json(file, *, streaming=False):
+    """Deserialize JSON format to Python objects.
+
+    Args:
+        file: File object to read from.
+        streaming: If True, raises ConfigError (JSON doesn't support streaming).
+
+    Returns:
+        Deserialized data structure.
+
+    Raises:
+        ConfigError: If streaming=True.
+    """
     import json
 
     if streaming:
@@ -215,6 +334,12 @@ def deserialize_json(file, *, streaming=False):
 
 
 def serialize_ndjson(file, state):
+    """Serialize state to NDJSON format (newline-delimited JSON).
+
+    Args:
+        file: File object to write to.
+        state: Sequence of objects to serialize, one per line.
+    """
     import json
 
     for elem in state:
@@ -222,6 +347,15 @@ def serialize_ndjson(file, state):
 
 
 def deserialize_ndjson(file, *, streaming=False):
+    """Deserialize NDJSON format to Python objects.
+
+    Args:
+        file: File object to read from.
+        streaming: If True, returns generator instead of list.
+
+    Returns:
+        List of deserialized objects, or generator if streaming=True.
+    """
     import json
 
     if streaming:
@@ -231,6 +365,16 @@ def deserialize_ndjson(file, *, streaming=False):
 
 
 def serialize(file, state, *, format):
+    """Serialize state to file in specified format.
+
+    Args:
+        file: File object to write to.
+        state: Data structure to serialize.
+        format: Format string: 'yaml', 'yml', 'json', or 'ndjson'.
+
+    Raises:
+        ConfigError: If format is unsupported.
+    """
     if format in ("yaml", "yml"):
         serialize_yaml(file, state)
     elif format == "json":
@@ -242,6 +386,19 @@ def serialize(file, state, *, format):
 
 
 def deserialize(file, *, format, streaming=False):
+    """Deserialize file to Python objects in specified format.
+
+    Args:
+        file: File object to read from.
+        format: Format string: 'yaml', 'yml', 'json', or 'ndjson'.
+        streaming: If True, return generator for ndjson. Raises error for other formats.
+
+    Returns:
+        Deserialized data structure, or generator if streaming ndjson.
+
+    Raises:
+        ConfigError: If format is unsupported or streaming requested for non-ndjson.
+    """
     if format in ("yaml", "yml"):
         state = deserialize_yaml(file, streaming=streaming)
     elif format == "json":
@@ -254,10 +411,20 @@ def deserialize(file, *, format, streaming=False):
 
 
 def fatal(msg):
+    """Exit process with error message.
+
+    Args:
+        msg: Error message to display.
+    """
     sys.exit(msg)
 
 
 def warn_interactive(f):
+    """Print instructions if reading from terminal interactively.
+
+    Args:
+        f: File object to check for tty.
+    """
     if f.isatty():
         if os.name == "nt":
             print("Press CTRL-Z and ENTER to end", file=sys.stderr)
@@ -266,6 +433,14 @@ def warn_interactive(f):
 
 
 def is_mutable(value):
+    """Check if value is mutable (unhashable).
+
+    Args:
+        value: Value to test.
+
+    Returns:
+        True if value cannot be used as dictionary key (mutable).
+    """
     d = {}
     try:
         d[value] = None
@@ -275,6 +450,16 @@ def is_mutable(value):
 
 
 def setup_logging(default_level="NOTSET"):
+    """Create logging configuration function.
+
+    Args:
+        default_level: Default log level if not overridden.
+
+    Returns:
+        Function that takes a level argument and configures the
+        elastic.pipes logger hierarchy.
+    """
+
     def _handler(level):
         import logging
 
@@ -303,6 +488,15 @@ def setup_logging(default_level="NOTSET"):
 
 
 def walk_tree(value, path=None):
+    """Recursively walk dictionary tree, yielding (path, value) tuples.
+
+    Args:
+        value: Dictionary or other value to walk.
+        path: Current path as list of keys.
+
+    Yields:
+        Tuples of (path_list, leaf_value) for non-mapping values.
+    """
     if path is None:
         path = []
     if isinstance(value, Mapping):
@@ -313,6 +507,14 @@ def walk_tree(value, path=None):
 
 
 def walk_contexts(pipe):
+    """Walk all Context classes used by pipe.
+
+    Args:
+        pipe: Pipe instance to inspect.
+
+    Yields:
+        Context classes from function parameters and nested contexts.
+    """
     from inspect import signature
 
     from . import Pipe
@@ -339,6 +541,15 @@ def walk_contexts(pipe):
 
 
 def walk_params(pipe):
+    """Walk all parameters with Node bindings in pipe.
+
+    Args:
+        pipe: Pipe instance to inspect.
+
+    Yields:
+        Tuples of (node, type, help, notes, default, empty) for each
+        parameter bound to config or state node.
+    """
     from inspect import signature
 
     from . import CommonContext, Pipe
@@ -383,7 +594,15 @@ def walk_params(pipe):
 
 
 def walk_config_nodes(pipes, prefix):
-    """Visit all the config nodes that refer to a state node having the given prefix."""
+    """Visit config nodes that reference state nodes with given prefix.
+
+    Args:
+        pipes: List of (pipe, config) tuples.
+        prefix: State node path prefix to match.
+
+    Yields:
+        Tuples of (pipe, 'config'/'state', node, help, notes, type, indirect, arg_name).
+    """
 
     from . import Pipe, _indirect
 
@@ -423,7 +642,15 @@ def walk_config_nodes(pipes, prefix):
 
 
 def walk_args_env(pipes, args_env):
-    """Visit all the config nodes that refer to an argument or an environment variable."""
+    """Visit config nodes that reference runtime arguments or environment variables.
+
+    Args:
+        pipes: List of (pipe, config) tuples.
+        args_env: Either 'arguments' or 'environment'.
+
+    Yields:
+        Tuples of (name, type) for each argument/environment variable.
+    """
 
     prefix = f"runtime.{args_env}."
     prefix_len = len(prefix)

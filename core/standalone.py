@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Core definitions for stand alone pipes invocation."""
+"""Standalone pipe execution in UNIX pipe mode.
+
+Provides functionality for running individual pipes as command-line tools
+that read state from stdin and write state to stdout, enabling composition
+via shell pipes.
+"""
 import logging
 import sys
 from contextlib import ExitStack
@@ -29,6 +34,15 @@ from .util import (
 
 
 def receive_state_from_unix_pipe(logger, default):
+    """Read and deserialize state from stdin.
+
+    Args:
+        logger: Logger for debug messages.
+        default: Default state if stdin is empty. If sys.exit, exit instead.
+
+    Returns:
+        Deserialized state dictionary, or default if stdin is empty.
+    """
     logger.debug("awaiting state from standard input")
     warn_interactive(sys.stdin)
     state = deserialize_yaml(sys.stdin)
@@ -46,11 +60,25 @@ def receive_state_from_unix_pipe(logger, default):
 
 
 def send_state_to_unix_pipe(logger, state):
+    """Serialize and write state to stdout.
+
+    Args:
+        logger: Logger for debug messages.
+        state: State dictionary to serialize.
+    """
     logger.debug("relaying state to standard output")
     serialize_yaml(sys.stdout, state)
 
 
 def help_message(pipe):
+    """Display formatted help for pipe to stderr.
+
+    Shows pipe documentation, configuration parameters, state nodes,
+    and notes in formatted panels using Rich library.
+
+    Args:
+        pipe: Pipe instance to document.
+    """
     from functools import partial
 
     from rich import print
@@ -131,6 +159,17 @@ def help_message(pipe):
 
 
 def run(pipe):
+    """Execute pipe as standalone command-line tool.
+
+    Creates a Typer CLI application that:
+    - Shows help if run interactively without --pipe-mode
+    - Reads state from stdin in UNIX pipe mode
+    - Executes the pipe with configuration from state
+    - Writes updated state to stdout
+
+    Args:
+        pipe: Pipe instance to run.
+    """
     import typer
     from typing_extensions import Annotated
 
@@ -154,6 +193,7 @@ def run(pipe):
             ),
         ] = False,
     ):
+        """Main CLI function for standalone pipe execution."""
         logger = logging.getLogger("elastic.pipes.core")
 
         if describe or sys.stdin.isatty() and not pipe_mode:
