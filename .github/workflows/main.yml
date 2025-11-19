@@ -133,7 +133,7 @@ jobs:
       name: Test PyPi
     permissions:
       id-token: write
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository != 'elastic/pipes-py'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository != 'elastic/pipes-core-py'
 
     steps:
       - name: Setup Python
@@ -166,7 +166,7 @@ jobs:
       name: PyPi
     permissions:
       id-token: write
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'elastic/pipes-py'
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'elastic/pipes-core-py'
 
     steps:
       - name: Setup Python

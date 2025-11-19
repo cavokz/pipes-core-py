@@ -3,7 +3,7 @@ requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "elastic-pipes"
+name = "elastic-pipes-core"
 description = "A lightweight composition system"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -28,8 +28,8 @@ dependencies = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/elastic/pipes-py"
-"Bug Tracker" = "https://github.com/elastic/pipes-py/issues"
+Homepage = "https://github.com/elastic/pipes-core-py"
+"Bug Tracker" = "https://github.com/elastic/pipes-core-py/issues"
 
 [tool.setuptools.dynamic]
 version = {attr = "core.__version__"}

@@ -44,7 +44,7 @@ pkg-build:
 	$(PYTHON) -m build
 
 pkg-install:
-	$(PYTHON) -m pip install --force-reinstall dist/elastic_pipes-*.whl
+	$(PYTHON) -m pip install --force-reinstall dist/elastic_pipes_core-*.whl
 
 pkg-test: FORMATS=json ndjson yaml
 pkg-test:
