@@ -1,6 +1,6 @@
 services:
   vault:
-    image: hashicorp/vault@sha256:f4e2687b72858a9e2160c344c9fa1ef74c07f21a89a8c00534ab64d3f187b927
+    image: hashicorp/vault@sha256:eb0ba6836e8d4699b7a1e8ca70d8433f7b87dcd067e6d82dff237d3ed2600ea0
     command: ["server", "-dev"]
     environment:
       VAULT_ADDR: http://127.0.0.1:8200
