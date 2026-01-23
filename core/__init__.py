@@ -67,22 +67,38 @@ def get_pipes(state):
     return configs
 
 
+def _get_name_from_func(func):
+    if func.__module__ != "__main__":
+        return func.__module__
+
+    import inspect
+    from pathlib import Path
+
+    file_path = inspect.getfile(func)
+    return Path(file_path).stem
+
+
 class Pipe:
     __pipes__ = {}
 
-    def __init__(self, name, *, default=sys.exit, notes=None, closing_notes=None):
+    def __init__(self, name=None, *, default=sys.exit, notes=None, closing_notes=None):
         self.func = None
         self.name = name
         self.notes = notes
         self.closing_notes = closing_notes
         self.default = default
-        self.logger = logging.getLogger(name)
-        self.logger.propagate = False
+        self.logger = None
 
     def __call__(self, func):
         from functools import partial
 
         from .standalone import run
+
+        if self.name is None:
+            self.name = _get_name_from_func(func)
+
+        self.logger = logging.getLogger(self.name)
+        self.logger.propagate = False
 
         if self.name in self.__pipes__:
             module = self.__pipes__[self.name].func.__module__

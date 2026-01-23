@@ -45,7 +45,7 @@ class Ctx(Pipe.Context):
     ]
 
 
-@Pipe("elastic.pipes.core.export")
+@Pipe()
 def main(ctx: Ctx, log: Logger, dry_run: bool):
     """Export data to file or standard output."""
 

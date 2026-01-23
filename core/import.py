@@ -76,7 +76,7 @@ class Ctx(Pipe.Context):
                 self.logger.debug(f"assuming import file format: {self.format}")
 
 
-@Pipe("elastic.pipes.core.import")
+@Pipe()
 def main(ctx: Ctx, stack: ExitStack, log: Logger):
     """Import data from file or standard input."""
 

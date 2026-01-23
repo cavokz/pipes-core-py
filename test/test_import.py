@@ -26,7 +26,6 @@ from core.util import serialize
 from .util import run
 
 import_module("core.import")
-pipe_name = "elastic.pipes.core.import"
 
 
 @contextmanager
@@ -47,7 +46,7 @@ def run_import(format_, data, *, streaming):
         }
         state = {"data": {}}
 
-        with run(pipe_name, config, state, in_memory_state=streaming) as state:
+        with run("core.import", config, state, in_memory_state=streaming) as state:
             yield state["data"]
     finally:
         if filename:
@@ -64,7 +63,7 @@ def test_import_streaming_unsupported():
 
     msg = "cannot use streaming import in UNIX pipe mode"
     with pytest.raises(ConfigError, match=msg):
-        with run(pipe_name, config, state) as _:
+        with run("core.import", config, state) as _:
             pass
 
 

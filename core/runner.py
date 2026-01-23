@@ -217,7 +217,7 @@ def new_pipe(
     try:
         with pipe_file.open("w" if force else "x") as f:
             f.write(
-                f"""#!/usr/bin/env python3
+                """#!/usr/bin/env python3
 
 from logging import Logger
 
@@ -225,7 +225,7 @@ from elastic.pipes.core import Pipe
 from typing_extensions import Annotated
 
 
-@Pipe("{pipe_file.stem}", default={{}}, notes="Use this example pipe as starting point for yours.")
+@Pipe(default={}, notes="Use this example pipe as starting point for yours.")
 def main(
     log: Logger,
     name: Annotated[
