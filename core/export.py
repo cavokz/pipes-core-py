@@ -58,12 +58,14 @@ def main(ctx: Ctx, log: Logger, dry_run: bool):
             format = "yaml"
             log.debug(f"assuming export file format: {format}")
 
-    if dry_run:
-        return
-
     node = ctx.get_binding("state").node
     msg_state = "everything" if node is None else f"'{node}'"
     msg_file_name = f"'{ctx.file_name}'" if ctx.file_name else "standard output"
+
+    if dry_run:
+        log.info(f"would export {msg_state} to {msg_file_name}...")
+        return
+
     log.info(f"exporting {msg_state} to {msg_file_name}...")
 
     if ctx.file_name:

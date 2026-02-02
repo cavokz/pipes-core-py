@@ -148,20 +148,13 @@ class Pipe:
     def run(self, config, state, dry_run, core_logger, exit_stack):
         from inspect import signature
 
-        params = signature(self.func).parameters
-
-        if not dry_run:
-            core_logger.debug(f"executing pipe '{self.name}'...")
-        elif "dry_run" in params:
-            core_logger.debug(f"dry executing pipe '{self.name}'...")
-        else:
-            core_logger.debug(f"not executing pipe '{self.name}'...")
+        core_logger.debug(f"executing pipe '{self.name}'...")
 
         with ExitStack() as stack:
             cc = CommonContext.bind(stack, config, state, core_logger, self.logger)
 
             kwargs = {}
-            for name, param in params.items():
+            for name, param in signature(self.func).parameters.items():
                 if name == "dry_run":
                     kwargs["dry_run"] = dry_run
                     continue
@@ -187,8 +180,7 @@ class Pipe:
                         except KeyError as e:
                             raise Error(e.args[0])
 
-            if not dry_run or "dry_run" in kwargs:
-                return self.func(**kwargs)
+            return self.func(**kwargs)
 
     class Help:
         def __init__(self, help):
