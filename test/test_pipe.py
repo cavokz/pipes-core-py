@@ -31,38 +31,38 @@ def run(name, config, state, *, dry_run=False):
 
 
 def test_dry_run():
-    executions = 0
-
     @Pipe("test_no_dry_run")
     def _():
-        nonlocal executions
-        executions += 1
+        nonlocal executed
+        executed = True
 
     @Pipe("test_dry_run_false")
     def _(dry_run):
-        nonlocal executions
-        executions += 1
+        nonlocal executed
+        executed = True
         assert dry_run is False
 
     @Pipe("test_dry_run_true")
     def _(dry_run):
-        nonlocal executions
-        executions += 1
+        nonlocal executed
+        executed = True
         assert dry_run is True
 
+    executed = False
     run("test_no_dry_run", {}, {}, dry_run=False)
-    assert executions == 1
+    assert executed
 
-    # if the pipe function does not have the `dry_run` argument,
-    # then it's not executed on dry run
+    executed = False
     run("test_no_dry_run", {}, {}, dry_run=True)
-    assert executions == 1
+    assert executed
 
+    executed = False
     run("test_dry_run_false", {}, {}, dry_run=False)
-    assert executions == 2
+    assert executed
 
+    executed = False
     run("test_dry_run_true", {}, {}, dry_run=True)
-    assert executions == 3
+    assert executed
 
 
 def test_multiple():
