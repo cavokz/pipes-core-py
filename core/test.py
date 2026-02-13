@@ -24,7 +24,7 @@ from .runner import configure_runtime
 @contextmanager
 def run(name, config, state, logger, *, arguments=None, environment=None, in_memory_state=False, dry_run=False):
     pipe = Pipe.find(name)
-    pipe.check_config(config)
+    pipe.check_config(config, logger)
 
     state = state.copy()
     state["pipes"] = [{name: config}]

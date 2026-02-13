@@ -189,7 +189,7 @@ def run(
 
     for pipe, config in pipes:
         try:
-            pipe.check_config(config)
+            pipe.check_config(config, logger)
         except Error as e:
             pipe.logger.critical(e)
             sys.exit(1)

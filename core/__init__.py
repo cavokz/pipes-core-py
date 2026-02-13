@@ -123,8 +123,10 @@ class Pipe:
                 if indirect := node.get_indirect_node_name():
                     yield indirect, str
 
-    def check_config(self, config):
+    def check_config(self, config, core_logger):
         from .util import split_path, walk_tree
+
+        core_logger.debug(f"checking configuration '{self.name}'...")
 
         params = list(self._walk_config_params())
         nodes = list(path for path, _ in walk_tree(config))
