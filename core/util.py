@@ -15,6 +15,7 @@
 """Helper functions for the Elastic Pipes implementation."""
 
 import os
+import re
 import sys
 from collections.abc import Mapping
 
@@ -31,6 +32,14 @@ else:
         iterator = iter(iterable)
         while chunk := list(islice(iterator, chunk_size)):
             yield chunk
+
+
+# Pattern to match valid paths: segments separated by dots
+# Segment can be either '[^']+' or "[^"]+" (quoted) or [^.'"]+ (unquoted, excluding dots and quotes)
+_valid_path_pattern = re.compile(r"""^('[^']+'|"[^"]+"|[^.'"]+)(\.('[^']+'|"[^"]+"|[^.'"]+))*$""")
+
+# Extract parts: either single-quoted (group 1), double-quoted (group 2), or unquoted segments (group 3)
+_extract_path_pattern = re.compile(r"""'([^']+)'|"([^"]+)"|([^.'"]+)""")
 
 
 def get_es_client(stack):
@@ -74,10 +83,10 @@ def split_path(path):
         return ()
     if not isinstance(path, str):
         raise Error(f"invalid path: type is '{type(path).__name__}' (expected 'str')")
-    keys = path.split(".")
-    if not all(keys):
+    if not _valid_path_pattern.match(path):
         raise Error(f"invalid path: {path}")
-    return keys
+    matches = _extract_path_pattern.findall(path)
+    return [m[0] if m[0] else (m[1] if m[1] else m[2]) for m in matches]
 
 
 def has_node(dict, path):

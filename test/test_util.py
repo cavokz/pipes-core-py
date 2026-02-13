@@ -23,7 +23,32 @@ from core.util import get_node, has_node, set_node, split_path
 def test_split_path():
     assert split_path(None) == ()
 
-    for path in ["", ".", ".user", ".user.nick", "user.", "user.nick.", "user..nick"]:
+    for path in [
+        "",
+        '"',
+        "'",
+        '""',
+        "''",
+        ".",
+        '"".""',
+        "''.\"\"",
+        "\"\".''",
+        ".a",
+        '"".a',
+        "''.a",
+        "a.",
+        'a.""',
+        "a.''",
+        ".a.b",
+        '"".a.b',
+        "''.a.b",
+        "a.b.",
+        'a.b.""',
+        "a.b.''",
+        "a..b",
+        'a."".b',
+        "a.''.b",
+    ]:
         msg = f"invalid path: {path}"
         with pytest.raises(Error, match=msg):
             _ = split_path(path)
