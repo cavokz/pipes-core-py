@@ -171,9 +171,10 @@ def run(pipe):
         config = configs[0] if configs else {}
 
         try:
-            pipe.check_config(config)
+            pipe.check_config(config, logger)
         except Error as e:
-            pipe.logger.critical(e)
+            # use core logger here because the pipe logger is not properly configured yet
+            logger.critical(f"{pipe.name}: {e}")
             sys.exit(1)
 
         with ExitStack() as stack:
