@@ -15,6 +15,7 @@
 """Elastic Pipes component to export data from the Pipes state."""
 
 import sys
+from contextlib import ExitStack
 from logging import Logger
 from pathlib import Path
 
@@ -43,10 +44,15 @@ class Ctx(Pipe.Context):
         Pipe.Help("state node containing the source data"),
         Pipe.Notes("default: whole state"),
     ]
+    on_failure: Annotated[
+        bool,
+        Pipe.Config("on-failure"),
+        Pipe.Help("export data only when the pipe script has failed"),
+    ] = False
 
 
 @Pipe()
-def main(ctx: Ctx, log: Logger, dry_run: bool):
+def main(ctx: Ctx, log: Logger, stack: ExitStack, dry_run: bool):
     """Export data to file or standard output."""
 
     format = ctx.format
@@ -58,21 +64,32 @@ def main(ctx: Ctx, log: Logger, dry_run: bool):
             format = "yaml"
             log.debug(f"assuming export file format: {format}")
 
-    node = ctx.get_binding("state").node
-    msg_state = "everything" if node is None else f"'{node}'"
-    msg_file_name = f"'{ctx.file_name}'" if ctx.file_name else "standard output"
+    def _export(exc_type=None, exc_value=None, traceback=None):
+        if ctx.on_failure and exc_type is None:
+            return
 
-    if dry_run:
-        log.info(f"would export {msg_state} to {msg_file_name}...")
-        return
+        node = ctx.get_binding("state").node
+        msg_state = "everything" if node is None else f"'{node}'"
+        msg_file_name = f"'{ctx.file_name}'" if ctx.file_name else "standard output"
+        on_failure = " due to script failure" if ctx.on_failure else ""
 
-    log.info(f"exporting {msg_state} to {msg_file_name}...")
+        if dry_run:
+            log.info(f"would export {msg_state} to {msg_file_name}{on_failure}...")
+            return
 
-    if ctx.file_name:
-        with Path(ctx.file_name).expanduser().open("w") as f:
-            serialize(f, ctx.state, format=format)
+        log.info(f"exporting {msg_state} to {msg_file_name}{on_failure}...")
+
+        if ctx.file_name:
+            with Path(ctx.file_name).expanduser().open("w") as f:
+                serialize(f, ctx.state, format=format)
+        else:
+            serialize(sys.stdout, ctx.state, format=format)
+
+    if ctx.on_failure:
+        log.info("deferring until any script failure...")
+        stack.push(_export)
     else:
-        serialize(sys.stdout, ctx.state, format=format)
+        _export()
 
 
 if __name__ == "__main__":

@@ -97,3 +97,56 @@ def test_export_ndjson(guess, stdio):
     with run_export("ndjson", data, guess=guess, stdio=stdio) as data_:
         assert isinstance(data_, list)
         assert data_ == data
+
+
+def test_export_on_failure_no_export_on_success():
+    # When on-failure is True, no export should be done on success.
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as f:
+        filename = f.name
+
+    try:
+        config = {
+            "node@": "data",
+            "file": filename,
+            "on-failure": True,
+        }
+        data = [{"a": 1}, {"b": 2}]
+        state = {"data": data}
+
+        with run("core.export", config, state):
+            assert not os.path.exists(filename)
+
+        assert not os.path.exists(filename)
+    finally:
+        if os.path.exists(filename):
+            os.unlink(filename)
+
+
+def test_export_on_failure_export_on_failure():
+    # When on-failure is True, an export should be done on failure.
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as f:
+        filename = f.name
+
+    try:
+        config = {
+            "node@": "data",
+            "file": filename,
+            "on-failure": True,
+        }
+        data = [{"a": 1}, {"b": 2}]
+        state = {"data": data}
+
+        with pytest.raises(ValueError, match="simulated failure"):
+            with run("core.export", config, state):
+                assert not os.path.exists(filename)
+                raise ValueError("simulated failure")
+
+        with open(filename, "r") as f:
+            assert deserialize(f, format="yaml") == data
+    finally:
+        if os.path.exists(filename):
+            os.unlink(filename)
