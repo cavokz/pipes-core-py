@@ -1,6 +1,6 @@
 # Documentation
 
-This directory contains the Sphinx documentation for Elastic Pipes.
+This directory contains the Sphinx documentation for Elastic Pipes Core.
 
 ## Building Locally
 

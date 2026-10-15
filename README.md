@@ -1,6 +1,6 @@
 # About
 
-Elastic Pipes defines a simple composition system in Python. The
+Elastic Pipes Core defines a simple composition system in Python. The
 components, named _pipes_, are executed in sequence and a _state_ is
 passed through from one to the next.
 

@@ -415,6 +415,44 @@ def test_state_indirect():
     run("test_state_indirect_them", {"user@": "username"}, {"name": "us", "username": "them"})
 
 
+def test_state_quoted_last_segment():
+    # a quoted final path segment must not break indirect '@' key generation
+    @Pipe("test_state_quoted_last_segment")
+    def _(
+        service_name: Annotated[str, Pipe.State('data."service.name"')],
+    ):
+        assert service_name == "checkout"
+
+    run("test_state_quoted_last_segment", {}, {"data": {"service.name": "checkout"}})
+    run(
+        "test_state_quoted_last_segment",
+        {"data": {"service.name@": "other.path"}},
+        {"other": {"path": "checkout"}},
+    )
+
+
+def test_config_quoted_last_segment():
+    @Pipe("test_config_quoted_last_segment")
+    def _(
+        service_name: Annotated[str, Pipe.Config('data."service.name"')],
+    ):
+        assert service_name == "checkout"
+
+    run("test_config_quoted_last_segment", {"data": {"service.name": "checkout"}}, {})
+
+
+def test_state_quoted_parent_segment():
+    # a quoted *non-final* segment containing a quote character (no dot)
+    # must still round-trip through indirect '@' key generation
+    @Pipe("test_state_quoted_parent_segment")
+    def _(
+        name: Annotated[str, Pipe.State('"it\'s".name')],
+    ):
+        assert name == "checkout"
+
+    run("test_state_quoted_parent_segment", {}, {"it's": {"name": "checkout"}})
+
+
 def test_state_dict_assembly():
     @Pipe("test_state_assembly_basic")
     def _(

@@ -14,6 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""CLI runner and pipe loading infrastructure.
+
+Provides the main entry point for executing pipe sequences from
+configuration files, loading pipe modules dynamically, and configuring
+the runtime environment with command-line arguments and environment variables.
+"""
+
 import os
 import sys
 from contextlib import ExitStack
@@ -29,12 +36,33 @@ main = typer.Typer(pretty_exceptions_enable=False)
 
 
 def parse_runtime_arguments(arguments):
+    """Parse command-line arguments in name=value format.
+
+    Args:
+        arguments: List of strings in "name=value" format.
+
+    Yields:
+        Tuples of (name, value).
+    """
     for arg in arguments or []:
         name, *value = arg.split("=")
         yield name, "=".join(value)
 
 
 def configure_runtime_args_env(runtime, args_env, values, pipes, logger):
+    """Configure runtime with arguments or environment variables.
+
+    Matches pipe parameter declarations against provided values and stores
+    them in the runtime dictionary. Attempts to parse non-string types using
+    ast.literal_eval.
+
+    Args:
+        runtime: Runtime dictionary to populate.
+        args_env: Either 'arguments' or 'environment'.
+        values: Dictionary of name=value pairs.
+        pipes: List of (pipe, config) tuples.
+        logger: Logger for debug output.
+    """
     import ast
 
     from .util import set_node, walk_args_env
@@ -52,17 +80,48 @@ def configure_runtime_args_env(runtime, args_env, values, pipes, logger):
 
 
 def configure_runtime_arguments(runtime, arguments, pipes, logger):
+    """Parse and configure runtime.arguments from command line.
+
+    Args:
+        runtime: Runtime dictionary to populate.
+        arguments: List of "name=value" strings.
+        pipes: List of (pipe, config) tuples.
+        logger: Logger for debug output.
+    """
     logger.debug("reading command line arguments")
     arguments = dict(parse_runtime_arguments(arguments))
     configure_runtime_args_env(runtime, "arguments", arguments, pipes, logger)
 
 
 def configure_runtime_environment(runtime, environment, pipes, logger):
+    """Configure runtime.environment from environment variables.
+
+    Args:
+        runtime: Runtime dictionary to populate.
+        environment: Dictionary of environment variables.
+        pipes: List of (pipe, config) tuples.
+        logger: Logger for debug output.
+    """
     logger.debug("reading environment variables")
     configure_runtime_args_env(runtime, "environment", environment, pipes, logger)
 
 
 def configure_runtime(state, config_file, arguments, environment, logger):
+    """Initialize runtime environment and load pipes.
+
+    Sets up runtime.base-dir, adds it to sys.path, loads pipe modules,
+    and configures runtime.arguments and runtime.environment.
+
+    Args:
+        state: State dictionary to augment with runtime config.
+        config_file: File object for configuration (used to determine base dir).
+        arguments: List of command-line arguments.
+        environment: Dictionary of environment variables.
+        logger: Logger for debug output.
+
+    Returns:
+        List of (pipe, config) tuples for loaded pipes.
+    """
     if config_file is sys.stdin:
         base_dir = Path.cwd()
     else:
@@ -87,6 +146,19 @@ def configure_runtime(state, config_file, arguments, environment, logger):
 
 
 def load_pipes(state, logger):
+    """Load pipe modules and return configured instances.
+
+    Imports modules by fully qualified name, adding search paths from
+    elastic.pipes configuration if present. Exits on module not found
+    or if module doesn't define the expected pipe.
+
+    Args:
+        state: State dictionary containing pipes configuration.
+        logger: Logger for debug output.
+
+    Returns:
+        List of (Pipe instance, config dict) tuples.
+    """
     from importlib import import_module
 
     from . import Pipe, get_pipes
@@ -117,6 +189,15 @@ def load_pipes(state, logger):
 
 
 def explain_everything(pipes, logger):
+    """Display runtime arguments and environment variables accepted by pipes.
+
+    Prints formatted panels showing which arguments and environment variables
+    are recognized by the pipe configuration, with help text and type information.
+
+    Args:
+        pipes: List of (pipe, config) tuples.
+        logger: Logger for debug output.
+    """
     from rich import print
     from rich.panel import Panel
     from rich.table import Table
@@ -163,8 +244,17 @@ def run(
     log_level: Annotated[Optional[str], typer.Option(callback=setup_logging("INFO"))] = None,
     arguments: Annotated[Optional[List[str]], typer.Option("--argument", "-a", help="Pass an argument to the Pipes runtime.")] = None,
 ):
-    """
-    Run pipes
+    """Execute pipe sequence from configuration file.
+
+    Loads configuration, initializes runtime, validates pipe configs,
+    and executes each pipe in sequence.
+
+    Args:
+        config_file: YAML configuration file path or stdin.
+        dry_run: If True, skip execution where pipes support it.
+        explain: If True, show accepted arguments/environment and exit.
+        log_level: Logging level (debug, info, warning, error, critical).
+        arguments: Command-line arguments in "name=value" format.
     """
     import logging
 
@@ -210,8 +300,14 @@ def new_pipe(
     pipe_file: Path,
     force: Annotated[bool, typer.Option("--force", "-f")] = False,
 ):
-    """
-    Create a new pipe module
+    """Generate a new pipe module from template.
+
+    Creates a Python file with boilerplate pipe definition and example
+    parameters. File is made executable.
+
+    Args:
+        pipe_file: Path for new pipe file (will add .py extension).
+        force: If True, overwrite existing file.
     """
 
     pipe_file = pipe_file.with_suffix(".py")
@@ -261,9 +357,7 @@ if __name__ == "__main__":
 
 @main.command()
 def version():
-    """
-    Print the version
-    """
+    """Display elastic-pipes version."""
     from ..core import __version__
 
     print(__version__)
