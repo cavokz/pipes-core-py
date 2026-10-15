@@ -109,7 +109,7 @@ class Pipe:
         self.logger = None
 
     def __call__(self, func):
-        from functools import partial
+        from functools import partial, update_wrapper
 
         from .standalone import run
 
@@ -125,7 +125,9 @@ class Pipe:
 
         self.__pipes__[self.name] = self
         self.func = func
-        return partial(run, self)
+        wrapped = partial(run, self)
+        update_wrapper(wrapped, func)
+        return wrapped
 
     @classmethod
     def find(cls, name):
