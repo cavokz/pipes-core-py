@@ -17,7 +17,7 @@ import re
 import pytest
 
 from core.errors import Error
-from core.util import get_node, has_node, set_node, split_path
+from core.util import get_node, has_node, quote_path_segment, set_node, split_path
 
 
 def test_split_path():
@@ -148,3 +148,19 @@ def test_set_node():
     msg = re.escape("not an object: None (type is NoneType)")
     with pytest.raises(Error, match=msg):
         set_node(None, None, None)
+
+
+def test_quote_path_segment():
+    assert quote_path_segment("name") == "name"
+    assert quote_path_segment("service.name") == "'service.name'"
+    assert quote_path_segment("service.name@") == "'service.name@'"
+    assert quote_path_segment("it's.mine") == '"it\'s.mine"'
+
+    # a quote character alone (no dot) must also be quoted
+    assert quote_path_segment("it's") == '"it\'s"'
+    assert quote_path_segment('say "hi"') == "'say \"hi\"'"
+
+    # both quote characters present: no quoting style can represent it
+    msg = re.escape("path segment cannot be quoted, contains both quote characters: 'it\\'s \"quoted\"'")
+    with pytest.raises(Error, match=msg):
+        quote_path_segment('it\'s "quoted"')

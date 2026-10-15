@@ -24,7 +24,14 @@ from typing import ClassVar
 from typing_extensions import Annotated, Any, NoDefault, get_args, get_type_hints
 
 from .errors import ConfigError, Error
-from .util import get_node, has_node, is_mutable, set_node
+from .util import (
+    get_node,
+    has_node,
+    is_mutable,
+    quote_path_segment,
+    set_node,
+    split_path,
+)
 
 __version__ = "0.8.0-dev"
 
@@ -33,7 +40,16 @@ logging.addLevelName(TRACE, "TRACE")
 
 
 def _indirect(node):
-    return node + "@"
+    """Generate indirect reference node name by appending '@' to the final path segment.
+
+    Appending '@' to the raw path string would break paths whose final
+    segment is quoted (e.g. 'data."a.b"' would become the invalid
+    'data."a.b"@'). Splitting and re-quoting as needed keeps the result a
+    valid path regardless of whether the final segment needs quoting.
+    """
+    segments = list(split_path(node))
+    segments[-1] += "@"
+    return ".".join(quote_path_segment(s) for s in segments)
 
 
 def validate_logging_config(name, config):

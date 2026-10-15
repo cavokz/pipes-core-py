@@ -89,6 +89,33 @@ def split_path(path):
     return [m[0] if m[0] else (m[1] if m[1] else m[2]) for m in matches]
 
 
+def quote_path_segment(segment):
+    """Quote a literal path segment if it requires quoting.
+
+    A segment must be quoted if it contains a dot (otherwise interpreted as
+    a path separator) or a quote character (otherwise invalid in an
+    unquoted segment). Segments needing none of these are returned
+    unchanged.
+
+    Args:
+        segment: Literal (already unquoted) path segment value.
+
+    Returns:
+        The segment as-is, or wrapped in quotes if needed.
+
+    Raises:
+        Error: If the segment contains both quote characters, since neither
+            quoting style can then represent it unambiguously.
+    """
+    if not any(c in segment for c in ".'\""):
+        return segment
+    if "'" not in segment:
+        return f"'{segment}'"
+    if '"' not in segment:
+        return f'"{segment}"'
+    raise Error(f"path segment cannot be quoted, contains both quote characters: {segment!r}")
+
+
 def has_node(dict, path):
     keys = split_path(path)
     for key in keys:
