@@ -17,9 +17,7 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-  "elasticsearch>=8.2.0",
   "pyyaml",
-  "requests",
   "semver",
   "typer",
   "typing_extensions>=4.12.0",

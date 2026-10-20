@@ -56,60 +56,6 @@ _valid_path_pattern = re.compile(r"""^('[^']+'|"[^"]+"|[^.'"]+)(\.('[^']+'|"[^"]
 _extract_path_pattern = re.compile(r"""'([^']+)'|"([^"]+)"|([^.'"]+)""")
 
 
-def get_es_client(stack):
-    """Create Elasticsearch client from configuration.
-
-    Args:
-        stack: Configuration dictionary containing elasticsearch.url and
-            credentials (api-key or username/password).
-
-    Returns:
-        Configured Elasticsearch client instance.
-    """
-    from elasticsearch import Elasticsearch
-
-    shell_expand = get_node(stack, "shell-expand", False)
-    api_key = get_node(stack, "credentials.api-key", None, shell_expand=shell_expand)
-    username = get_node(stack, "credentials.username", None, shell_expand=shell_expand)
-    password = get_node(stack, "credentials.password", None, shell_expand=shell_expand)
-
-    args = {
-        "hosts": get_node(stack, "elasticsearch.url", shell_expand=shell_expand),
-    }
-    if api_key:
-        args["api_key"] = api_key
-    elif username:
-        args["basic_auth"] = (username, password)
-    return Elasticsearch(**args)
-
-
-def get_kb_client(stack):
-    """Create Kibana client from configuration.
-
-    Args:
-        stack: Configuration dictionary containing kibana.url and
-            credentials (api-key or username/password).
-
-    Returns:
-        Configured Kibana client instance.
-    """
-    from .kibana import Kibana
-
-    shell_expand = get_node(stack, "shell-expand", False)
-    api_key = get_node(stack, "credentials.api-key", None, shell_expand=shell_expand)
-    username = get_node(stack, "credentials.username", None, shell_expand=shell_expand)
-    password = get_node(stack, "credentials.password", None, shell_expand=shell_expand)
-
-    args = {
-        "url": get_node(stack, "kibana.url", shell_expand=shell_expand),
-    }
-    if api_key:
-        args["api_key"] = api_key
-    elif username:
-        args["basic_auth"] = (username, password)
-    return Kibana(**args)
-
-
 def split_path(path):
     """Split dot-separated path into list of keys.
 
