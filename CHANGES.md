@@ -1,3 +1,20 @@
+## v0.8.0 - Oct 21, 2026
+
+* Split `elastic-pipes-core` from `elastic-pipes`.
+* Drop Elasticsearch and Kibana clients from core.
+* Remove the HCP Vault pipes, now part of `elastic-pipes`.
+* Add documentation for the core package.
+* Allow read-only pipes to run during dry runs.
+* Allow `core.export` to run after a pipe failure.
+* Add a `data` configuration node to the export pipe.
+* Make indirection optional in `Pipe.Config`.
+* Support assembling mappings from `@`-keyed state nodes.
+* Infer the pipe name when it is not specified.
+* Improve pipe configuration errors and add debug logging.
+* Support quoted paths in configuration nodes.
+* Use resolved type hints when inspecting pipe functions.
+* Add a `TRACE` logging level.
+
 ## v0.7.0 - Oct 1, 2025
 
 * Allow the import pipe to lazy import data from ndjson files so to allow
