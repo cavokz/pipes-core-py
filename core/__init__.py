@@ -68,7 +68,7 @@ from .util import (
     split_path,
 )
 
-__version__ = "0.8.0-dev"
+__version__ = "0.8.0"
 
 TRACE = 5
 logging.addLevelName(TRACE, "TRACE")
