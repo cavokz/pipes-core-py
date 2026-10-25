@@ -244,6 +244,23 @@ Set log level per pipe:
          logging:
            level: debug
 
+Set the log line format, ``text`` (default) or ``json`` (ECS-compliant), via
+the ``elastic.pipes`` pipe — this is the only pipe where ``logging.format``
+may be set, since it configures the single handler shared by every pipe's
+logger. Place ``elastic.pipes`` first in the ``pipes`` list so the format
+applies from the very start:
+
+.. code-block:: yaml
+
+   pipes:
+     - elastic.pipes:
+         logging:
+           format: json
+
+The ``--log-format`` command-line option (``elastic-pipes run --log-format
+json config.yaml``) always takes priority over the ``logging.format``
+configuration node.
+
 Runtime Arguments
 ~~~~~~~~~~~~~~~~~
 

@@ -17,6 +17,7 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
+  "ecs-logging",
   "pyyaml",
   "semver",
   "typer",

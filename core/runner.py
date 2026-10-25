@@ -30,7 +30,7 @@ from typing import List, Optional
 import typer
 from typing_extensions import Annotated
 
-from .util import fatal, get_node, setup_logging
+from .util import fatal, get_node, setup_logging, setup_logging_format
 
 main = typer.Typer(pretty_exceptions_enable=False)
 
@@ -242,6 +242,10 @@ def run(
     dry_run: Annotated[bool, typer.Option()] = False,
     explain: Annotated[bool, typer.Option(help="Describe what the script does.")] = False,
     log_level: Annotated[Optional[str], typer.Option(callback=setup_logging("INFO"))] = None,
+    log_format: Annotated[
+        Optional[str],
+        typer.Option(callback=setup_logging_format("text"), help="Log line format: 'text' or 'json' (ECS-compliant)."),
+    ] = None,
     arguments: Annotated[Optional[List[str]], typer.Option("--argument", "-a", help="Pass an argument to the Pipes runtime.")] = None,
 ):
     """Execute pipe sequence from configuration file.
@@ -254,6 +258,8 @@ def run(
         dry_run: If True, skip execution where pipes support it.
         explain: If True, show accepted arguments/environment and exit.
         log_level: Logging level (debug, info, warning, error, critical).
+        log_format: Log line format, "text" or "json" (ECS-compliant). Takes
+            priority over a 'logging.format' node in the elastic.pipes pipe config.
         arguments: Command-line arguments in "name=value" format.
     """
     import logging

@@ -395,6 +395,53 @@ def is_mutable(value):
     return False
 
 
+def _build_log_formatter(fmt):
+    """Build a logging.Formatter for the given format name.
+
+    Args:
+        fmt: Format name, "text" or "json" (case-insensitive).
+
+    Returns:
+        A configured logging.Formatter instance. "json" produces
+        ECS-compliant JSON lines via ecs_logging.StdlibFormatter.
+
+    Raises:
+        ConfigError: If fmt is not a recognized format name.
+    """
+    import logging
+
+    name = fmt.lower()
+    if name == "text":
+        return logging.Formatter("%(name)s - %(message)s")
+    if name == "json":
+        import ecs_logging
+
+        return ecs_logging.StdlibFormatter()
+    raise ConfigError(f"invalid logging format: '{fmt}'")
+
+
+def set_logging_format(fmt):
+    """Set the log line format for the elastic.pipes logger hierarchy.
+
+    Switches the formatter on the shared handler(s) of the 'elastic.pipes'
+    root logger. Every pipe logger references these same handler objects
+    (see setup_logging), so the new format applies to all of them, for any
+    log line emitted from this point forward.
+
+    Args:
+        fmt: Format name, "text" or "json" (case-insensitive).
+
+    Raises:
+        ConfigError: If fmt is not a recognized format name.
+    """
+    import logging
+
+    formatter = _build_log_formatter(fmt)
+    logger = logging.getLogger("elastic.pipes")
+    for handler in logger.handlers:
+        handler.setFormatter(formatter)
+
+
 def setup_logging(default_level="NOTSET"):
     """Create logging configuration function.
 
@@ -409,11 +456,9 @@ def setup_logging(default_level="NOTSET"):
     def _handler(level):
         import logging
 
-        formatter = logging.Formatter("%(name)s - %(message)s")
-
         # a single handler to rule them all
         handler = logging.StreamHandler()
-        handler.setFormatter(formatter)
+        handler.setFormatter(_build_log_formatter("text"))
 
         # root of all the elastic pipes loggers
         logger = logging.getLogger("elastic.pipes")
@@ -431,6 +476,40 @@ def setup_logging(default_level="NOTSET"):
         return logger.level
 
     return _handler
+
+
+def setup_logging_format(default_format="text"):
+    """Create logging format configuration function.
+
+    Returns a function meant for use as a CLI option callback. It sets the
+    log line format for the elastic.pipes logger hierarchy and, when a
+    format is explicitly passed (as opposed to left at its default), flags
+    the choice as CLI-overridden so that a 'logging.format' pipe config
+    node is ignored (see the 'elastic.pipes' pipe).
+
+    Args:
+        default_format: Format to apply if the option is not passed.
+
+    Returns:
+        Function that takes a format name argument and configures the
+        elastic.pipes logger hierarchy.
+
+    Raises:
+        ConfigError: If an explicitly passed format is not recognized.
+    """
+
+    def _format(fmt):
+        import logging
+
+        if fmt is None:
+            set_logging_format(default_format)
+        else:
+            set_logging_format(fmt)
+            logging.getLogger("elastic.pipes").format_overridden = True
+
+        return fmt
+
+    return _format
 
 
 def walk_tree(value, path=None):

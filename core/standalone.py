@@ -29,6 +29,7 @@ from .util import (
     fatal,
     serialize_yaml,
     setup_logging,
+    setup_logging_format,
     warn_interactive,
 )
 
@@ -176,6 +177,10 @@ def run(pipe):
     def _main(
         dry_run: Annotated[bool, typer.Option()] = False,
         log_level: Annotated[str, typer.Option(callback=setup_logging("DEBUG"))] = None,
+        log_format: Annotated[
+            str,
+            typer.Option(callback=setup_logging_format("text"), help="Log line format: 'text' or 'json' (ECS-compliant)."),
+        ] = None,
         pipe_mode: Annotated[
             bool,
             typer.Option(

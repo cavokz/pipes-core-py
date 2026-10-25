@@ -88,19 +88,21 @@ def _indirect(node):
 
 
 def validate_logging_config(name, config):
-    """Validate logging.level configuration value.
+    """Validate logging.level and logging.format configuration values.
 
     Args:
         name: Pipe name for error messages.
         config: Configuration dictionary to validate.
 
     Raises:
-        ConfigError: If logging.level contains an invalid value.
+        ConfigError: If logging.level or logging.format contains an invalid value.
     """
     if level := get_node(config, "logging.level", None):
         level_nr = logging.getLevelName(level.upper())
         if not isinstance(level_nr, int):
             raise ConfigError(f"invalid configuration: pipe '{name}': node 'logging.level': value '{level}'")
+    if (fmt := get_node(config, "logging.format", None)) and (not isinstance(fmt, str) or fmt.lower() not in ("text", "json")):
+        raise ConfigError(f"invalid configuration: pipe '{name}': node 'logging.format': value '{fmt}'")
 
 
 def get_pipes(state):
@@ -838,19 +840,31 @@ def _elastic_pipes(
         Sequence,
         Pipe.Config("search-path"),
     ] = None,
+    logging_format: Annotated[
+        str,
+        Pipe.Config("logging.format"),
+    ] = "text",
     dry_run: bool = False,
 ):
-    """Core pipe for version checking and search path configuration.
+    """Core pipe for version checking, search path, and logging format configuration.
 
     Args:
         min_version: Minimum required elastic-pipes version (semver format).
         search_path: Additional paths to search for pipe modules.
+        logging_format: Log line format, "text" or "json" (ECS-compliant).
         dry_run: Accepted but unused; version checking and search path setup
             always run regardless of dry-run.
 
     Raises:
-        ConfigError: If current version is below minimum required version.
+        ConfigError: If current version is below minimum required version,
+            or logging_format is not a recognized format name.
     """
+    # applied first: any error raised below should already be logged in the chosen format
+    if not getattr(logging.getLogger("elastic.pipes"), "format_overridden", False):
+        from .util import set_logging_format
+
+        set_logging_format(logging_format)
+
     if min_version is not None:
         from semver import VersionInfo
 
