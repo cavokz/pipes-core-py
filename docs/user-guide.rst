@@ -261,6 +261,14 @@ The ``--log-format`` command-line option (``elastic-pipes run --log-format
 json config.yaml``) always takes priority over the ``logging.format``
 configuration node.
 
+In ``json`` mode, a top-level exception handler is installed so that any
+exception escaping all pipe processing is captured as a single ECS log line,
+rather than a raw traceback that would break the one-JSON-object-per-line
+output. Fatal diagnostics (invalid configuration, missing files, unknown
+pipes) are logged through the same mechanism, instead of being printed as
+plain text. An interrupt (Ctrl-C, SIGINT) is logged once, in ``json`` mode
+only, right before the process exits.
+
 Runtime Arguments
 ~~~~~~~~~~~~~~~~~
 

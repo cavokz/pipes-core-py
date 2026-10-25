@@ -14,16 +14,24 @@
 
 """Tests for the logging format: set_logging_format/setup_logging_format,
 the elastic.pipes pipe's logging.format config node, its scope restriction
-to that pipe, and the CLI's priority over it."""
+to that pipe, the CLI's priority over it, and the top-level exception
+handler installed while the format is "json"."""
 
 import logging
+import sys
 
 import ecs_logging
 import pytest
 
 from core import Pipe
 from core.errors import ConfigError, Error
-from core.util import set_logging_format, setup_logging, setup_logging_format
+from core.util import (
+    fatal,
+    log_interrupt,
+    set_logging_format,
+    setup_logging,
+    setup_logging_format,
+)
 
 
 def run(name, config, state):
@@ -38,6 +46,7 @@ def _logging_handler():
     logger = logging.getLogger("elastic.pipes")
     saved_handlers = logger.handlers[:]
     saved_overridden = getattr(logger, "format_overridden", False)
+    saved_excepthook = sys.excepthook
     logger.handlers = []
     setup_logging()(None)  # attach a single handler, default text formatter, like the CLI does
     try:
@@ -45,6 +54,7 @@ def _logging_handler():
     finally:
         logger.handlers = saved_handlers
         logger.format_overridden = saved_overridden
+        sys.excepthook = saved_excepthook
 
 
 def _formatters():
@@ -57,6 +67,15 @@ def test_set_logging_format_text_and_json():
 
     set_logging_format("TEXT")  # case-insensitive
     assert all(isinstance(f, logging.Formatter) and not isinstance(f, ecs_logging.StdlibFormatter) for f in _formatters())
+
+
+def test_format_before_level_still_wins():
+    # click processes given options in command-line order, not declaration
+    # order: --log-format may run before --log-level creates the handler
+    logging.getLogger("elastic.pipes").handlers = []
+    setup_logging_format("text")("json")
+    setup_logging("INFO")(None)
+    assert all(isinstance(f, ecs_logging.StdlibFormatter) for f in _formatters())
 
 
 def test_set_logging_format_invalid():
@@ -112,9 +131,97 @@ def test_cli_log_format_default_does_not_override():
 
 
 def test_elastic_pipes_applies_logging_format_before_min_version_check():
-    # the format switch must take effect before any other check in the same
-    # pipe invocation raises, so the resulting error is logged in that format
+    # format must switch before the min-version check can raise
     msg = r"current version is older than minimum version"
     with pytest.raises(Error, match=msg):
         run("elastic.pipes", {"logging": {"format": "json"}, "minimum-version": "99.0.0"}, {})
     assert all(isinstance(f, ecs_logging.StdlibFormatter) for f in _formatters())
+
+
+def test_json_format_installs_excepthook():
+    original_hook = sys.excepthook
+
+    set_logging_format("json")
+    assert sys.excepthook is not original_hook
+
+    set_logging_format("text")
+    assert sys.excepthook is original_hook
+
+
+def test_json_excepthook_logs_a_single_message():
+    # elastic.pipes sets propagate=False on this logger; capture directly instead of via caplog
+    set_logging_format("json")
+
+    logger = logging.getLogger("elastic.pipes")
+    records = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    logger.addHandler(handler)
+
+    try:
+        try:
+            raise ValueError("boom")
+        except ValueError:
+            exc_info = sys.exc_info()
+
+        sys.excepthook(*exc_info)
+    finally:
+        logger.removeHandler(handler)
+
+    assert len(records) == 1
+    record = records[0]
+    assert record.name == "elastic.pipes"
+    assert record.levelno == logging.CRITICAL
+    assert record.exc_info[0] is ValueError
+
+
+def test_fatal_logs_through_the_configured_logger_in_json_mode():
+    logger = logging.getLogger("elastic.pipes.core")
+    records = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    logger.addHandler(handler)
+
+    try:
+        set_logging_format("json")
+        with pytest.raises(SystemExit) as exc_info:
+            fatal("boom")
+        assert exc_info.value.code == 1
+        assert len(records) == 1
+        assert records[0].levelno == logging.CRITICAL
+        assert records[0].getMessage() == "boom"
+    finally:
+        logger.removeHandler(handler)
+
+
+def test_fatal_unchanged_in_text_mode():
+    set_logging_format("text")
+    with pytest.raises(SystemExit) as exc_info:
+        fatal("boom")
+    assert exc_info.value.code == "boom"
+
+
+def test_log_interrupt_only_in_json():
+    @log_interrupt
+    def _raise():
+        raise KeyboardInterrupt
+
+    logger = logging.getLogger("elastic.pipes.core")
+    records = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    logger.addHandler(handler)
+
+    try:
+        set_logging_format("text")
+        with pytest.raises(KeyboardInterrupt):
+            _raise()
+        assert records == []
+
+        set_logging_format("json")
+        with pytest.raises(KeyboardInterrupt):
+            _raise()
+        assert len(records) == 1
+        assert records[0].levelno == logging.WARNING
+    finally:
+        logger.removeHandler(handler)

@@ -30,7 +30,7 @@ from typing import List, Optional
 import typer
 from typing_extensions import Annotated
 
-from .util import fatal, get_node, setup_logging, setup_logging_format
+from .util import fatal, get_node, log_interrupt, setup_logging, setup_logging_format
 
 main = typer.Typer(pretty_exceptions_enable=False)
 
@@ -237,6 +237,7 @@ def explain_everything(pipes, logger):
 
 
 @main.command()
+@log_interrupt
 def run(
     config_file: typer.FileText,
     dry_run: Annotated[bool, typer.Option()] = False,

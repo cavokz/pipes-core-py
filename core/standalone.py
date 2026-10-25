@@ -27,6 +27,7 @@ from .errors import Error
 from .util import (
     deserialize_yaml,
     fatal,
+    log_interrupt,
     serialize_yaml,
     setup_logging,
     setup_logging_format,
@@ -174,6 +175,7 @@ def run(pipe):
     import typer
     from typing_extensions import Annotated
 
+    @log_interrupt
     def _main(
         dry_run: Annotated[bool, typer.Option()] = False,
         log_level: Annotated[str, typer.Option(callback=setup_logging("DEBUG"))] = None,

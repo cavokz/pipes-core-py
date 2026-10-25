@@ -359,9 +359,18 @@ def deserialize(file, *, format, streaming=False):
 def fatal(msg):
     """Exit process with error message.
 
+    In json mode, logs msg as a single ECS line and exits with status 1,
+    since sys.exit(msg) would otherwise print msg as plain text (sys.excepthook
+    is not invoked for the SystemExit that sys.exit(msg) raises).
+
     Args:
         msg: Error message to display.
     """
+    import logging
+
+    if sys.excepthook is _log_uncaught_exception:
+        logging.getLogger("elastic.pipes.core").critical(msg)
+        sys.exit(1)
     sys.exit(msg)
 
 
@@ -420,6 +429,47 @@ def _build_log_formatter(fmt):
     raise ConfigError(f"invalid logging format: '{fmt}'")
 
 
+def _ensure_log_handler():
+    """Create and attach the shared elastic.pipes StreamHandler, once.
+
+    Click/Typer process CLI options in the order they were given, not in
+    declaration order, so --log-level and --log-format may run in either
+    order: this makes handler creation idempotent regardless.
+
+    Returns:
+        The 'elastic.pipes' logger, with a handler attached.
+    """
+    import logging
+
+    logger = logging.getLogger("elastic.pipes")
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(_build_log_formatter("text"))
+        logger.addHandler(handler)
+    return logger
+
+
+_previous_excepthook = None
+
+
+def _log_uncaught_exception(exc_type, exc_value, exc_tb):
+    """Log an escaping exception as a single message instead of a raw traceback.
+
+    Installed as sys.excepthook while the log format is "json", so that an
+    exception escaping all pipe processing still produces a single
+    ECS-compliant JSON log line, rather than a plain traceback that would
+    break JSON-per-line output.
+
+    Args:
+        exc_type: Exception class.
+        exc_value: Exception instance.
+        exc_tb: Traceback object.
+    """
+    import logging
+
+    logging.getLogger("elastic.pipes").critical("unhandled exception", exc_info=(exc_type, exc_value, exc_tb))
+
+
 def set_logging_format(fmt):
     """Set the log line format for the elastic.pipes logger hierarchy.
 
@@ -428,18 +478,59 @@ def set_logging_format(fmt):
     (see setup_logging), so the new format applies to all of them, for any
     log line emitted from this point forward.
 
+    When fmt is "json", also installs a top-level exception handler (see
+    _log_uncaught_exception) so that an escaping exception is captured as a
+    single log message instead of a raw traceback. Switching back to "text"
+    restores the exception handler that was in place before.
+
     Args:
         fmt: Format name, "text" or "json" (case-insensitive).
 
     Raises:
         ConfigError: If fmt is not a recognized format name.
     """
-    import logging
+    global _previous_excepthook
 
     formatter = _build_log_formatter(fmt)
-    logger = logging.getLogger("elastic.pipes")
+    logger = _ensure_log_handler()
     for handler in logger.handlers:
         handler.setFormatter(formatter)
+
+    if fmt.lower() == "json":
+        if sys.excepthook is not _log_uncaught_exception:
+            _previous_excepthook = sys.excepthook
+            sys.excepthook = _log_uncaught_exception
+    elif sys.excepthook is _log_uncaught_exception:
+        sys.excepthook = _previous_excepthook or sys.__excepthook__
+        _previous_excepthook = None
+
+
+def log_interrupt(func):
+    """Decorate a Typer command to log a KeyboardInterrupt, only in json mode.
+
+    Typer converts an escaping KeyboardInterrupt into a silent exit(130)
+    before sys.excepthook ever sees it: this runs first, from inside the
+    command, then re-raises so that exit(130) still happens.
+
+    Args:
+        func: Command function to decorate.
+
+    Returns:
+        Wrapped function.
+    """
+    import logging
+    from functools import wraps
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except KeyboardInterrupt:
+            if sys.excepthook is _log_uncaught_exception:
+                logging.getLogger("elastic.pipes.core").warning("interrupted")
+            raise
+
+    return wrapper
 
 
 def setup_logging(default_level="NOTSET"):
@@ -454,17 +545,7 @@ def setup_logging(default_level="NOTSET"):
     """
 
     def _handler(level):
-        import logging
-
-        # a single handler to rule them all
-        handler = logging.StreamHandler()
-        handler.setFormatter(_build_log_formatter("text"))
-
-        # root of all the elastic pipes loggers
-        logger = logging.getLogger("elastic.pipes")
-
-        # all the pipes sync their handlers with this
-        logger.addHandler(handler)
+        logger = _ensure_log_handler()
 
         # all the pipes sync their log level with this, unless configured differently
         if level is None:
