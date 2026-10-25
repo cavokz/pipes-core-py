@@ -129,7 +129,7 @@ def configure_runtime(state, config_file, arguments, environment, logger):
 
     base_dir = str(base_dir.absolute())
     if base_dir not in sys.path:
-        logger.debug(f"adding '{base_dir}' to the search path")
+        logger.debug(f"adding '{base_dir}' to the search path", extra={"file": {"path": base_dir}})
         sys.path.append(base_dir)
 
     state.setdefault("runtime", {}).update(
@@ -171,7 +171,7 @@ def load_pipes(state, logger):
             for path in get_node(config, "search-path", None) or []:
                 path = str(Path(state["runtime"]["base-dir"]) / path)
                 if path not in sys.path:
-                    logger.debug(f"adding '{path}' to the search path")
+                    logger.debug(f"adding '{path}' to the search path", extra={"file": {"path": path}})
                     sys.path.append(path)
 
     for name, config in pipes:
@@ -181,9 +181,12 @@ def load_pipes(state, logger):
         try:
             import_module(name)
         except ModuleNotFoundError as e:
-            fatal(f"cannot load pipe '{name}': cannot find module: '{e.name}'")
+            fatal(
+                f"cannot load pipe '{name}': cannot find module: '{e.name}'",
+                extra={"labels": {"pipe": name}, "event": {"outcome": "failure"}},
+            )
         if name not in Pipe.__pipes__:
-            fatal(f"module does not define a pipe: {name}")
+            fatal(f"module does not define a pipe: {name}", extra={"labels": {"pipe": name}, "event": {"outcome": "failure"}})
 
     return [(Pipe.find(name), config) for name, config in pipes]
 
@@ -274,10 +277,10 @@ def run(
         warn_interactive(config_file)
         state = deserialize_yaml(config_file) or {}
     except FileNotFoundError as e:
-        fatal(f"{e.strerror}: '{e.filename}'")
+        fatal(f"{e.strerror}: '{e.filename}'", extra={"event": {"outcome": "failure"}})
 
     if not state:
-        fatal("invalid configuration, it's empty")
+        fatal("invalid configuration, it's empty", extra={"event": {"outcome": "failure"}})
 
     pipes = configure_runtime(state, config_file, arguments, os.environ, logger)
 
@@ -290,7 +293,7 @@ def run(
             pipe.check_config(config, logger)
         except Error as e:
             # use core logger here because the pipe logger is not properly configured yet
-            logger.critical(f"{pipe.name}: {e}")
+            logger.critical(f"{pipe.name}: {e}", extra={"labels": {"pipe": pipe.name}, "event": {"outcome": "failure"}})
             sys.exit(1)
 
     with ExitStack() as stack:
@@ -298,7 +301,7 @@ def run(
             try:
                 pipe.run(config, state, dry_run, logger, stack)
             except Error as e:
-                pipe.logger.critical(e)
+                pipe.logger.critical(e, extra={"event": {"outcome": "failure"}})
                 sys.exit(1)
 
 

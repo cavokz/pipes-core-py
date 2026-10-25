@@ -356,7 +356,7 @@ def deserialize(file, *, format, streaming=False):
     return state
 
 
-def fatal(msg):
+def fatal(msg, extra=None):
     """Exit process with error message.
 
     In json mode, logs msg as a single ECS line and exits with status 1,
@@ -365,11 +365,12 @@ def fatal(msg):
 
     Args:
         msg: Error message to display.
+        extra: Optional structured fields to attach to the json log line.
     """
     import logging
 
     if sys.excepthook is _log_uncaught_exception:
-        logging.getLogger("elastic.pipes.core").critical(msg)
+        logging.getLogger("elastic.pipes.core").critical(msg, extra=extra)
         sys.exit(1)
     sys.exit(msg)
 

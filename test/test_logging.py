@@ -19,6 +19,7 @@ handler installed while the format is "json"."""
 
 import logging
 import sys
+from contextlib import ExitStack
 
 import ecs_logging
 import pytest
@@ -194,6 +195,22 @@ def test_fatal_logs_through_the_configured_logger_in_json_mode():
         logger.removeHandler(handler)
 
 
+def test_fatal_passes_extra_through_in_json_mode():
+    logger = logging.getLogger("elastic.pipes.core")
+    records = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    logger.addHandler(handler)
+
+    try:
+        set_logging_format("json")
+        with pytest.raises(SystemExit):
+            fatal("boom", extra={"labels": {"pipe": "x"}})
+        assert records[0].labels == {"pipe": "x"}
+    finally:
+        logger.removeHandler(handler)
+
+
 def test_fatal_unchanged_in_text_mode():
     set_logging_format("text")
     with pytest.raises(SystemExit) as exc_info:
@@ -225,3 +242,27 @@ def test_log_interrupt_only_in_json():
         assert records[0].levelno == logging.WARNING
     finally:
         logger.removeHandler(handler)
+
+
+def test_check_config_and_run_label_debug_logs_with_pipe_name():
+    @Pipe("test_lifecycle_labels_pipe")
+    def _():
+        pass
+
+    pipe = Pipe.find("test_lifecycle_labels_pipe")
+    core_logger = logging.getLogger("test_lifecycle_labels_core_logger")
+    core_logger.setLevel(logging.DEBUG)
+    records = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    core_logger.addHandler(handler)
+
+    try:
+        pipe.check_config({}, core_logger)
+        with ExitStack() as stack:
+            pipe.run({}, {}, False, core_logger, stack)
+    finally:
+        core_logger.removeHandler(handler)
+
+    assert records
+    assert all(r.labels == {"pipe": "test_lifecycle_labels_pipe"} for r in records)

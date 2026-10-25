@@ -297,6 +297,7 @@ class Pipe:
         """
         from .util import split_path, walk_tree
 
+        core_logger = logging.LoggerAdapter(core_logger, {"labels": {"pipe": self.name}})
         core_logger.debug(f"checking configuration '{self.name}'...")
 
         params = list(self._walk_config_params())
@@ -347,6 +348,7 @@ class Pipe:
         """
         from inspect import signature
 
+        core_logger = logging.LoggerAdapter(core_logger, {"labels": {"pipe": self.name}})
         core_logger.debug(f"executing pipe '{self.name}'...")
 
         with ExitStack() as stack:

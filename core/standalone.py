@@ -211,7 +211,7 @@ def run(pipe):
             state = receive_state_from_unix_pipe(pipe.logger, pipe.default)
             pipes = get_pipes(state)
         except Error as e:
-            fatal(e)
+            fatal(e, extra={"event": {"outcome": "failure"}})
 
         configs = [c for n, c in pipes if n == pipe.name]
         config = configs[0] if configs else {}
@@ -220,14 +220,14 @@ def run(pipe):
             pipe.check_config(config, logger)
         except Error as e:
             # use core logger here because the pipe logger is not properly configured yet
-            logger.critical(f"{pipe.name}: {e}")
+            logger.critical(f"{pipe.name}: {e}", extra={"labels": {"pipe": pipe.name}, "event": {"outcome": "failure"}})
             sys.exit(1)
 
         with ExitStack() as stack:
             try:
                 pipe.run(config, state, dry_run, logger, stack)
             except Error as e:
-                pipe.logger.critical(e)
+                pipe.logger.critical(e, extra={"event": {"outcome": "failure"}})
                 sys.exit(1)
         send_state_to_unix_pipe(pipe.logger, state)
 
