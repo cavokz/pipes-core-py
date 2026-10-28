@@ -250,7 +250,7 @@ def explain_everything(pipes, logger):
 @main.command()
 @log_interrupt
 def run(
-    config_file: typer.FileText,
+    config_file: Annotated[str, typer.Argument(help="YAML configuration file, or '-' for standard input.")],
     dry_run: Annotated[bool, typer.Option()] = False,
     explain: Annotated[bool, typer.Option(help="Describe what the script does.")] = False,
     log_level: Annotated[Optional[str], typer.Option(callback=setup_logging("INFO"))] = None,
@@ -282,9 +282,10 @@ def run(
     logger = logging.getLogger("elastic.pipes.core")
 
     try:
+        config_file = sys.stdin if config_file == "-" else open(config_file)  # noqa: SIM115 (kept open for the rest of the command)
         warn_interactive(config_file)
         state = deserialize_yaml(config_file) or {}
-    except FileNotFoundError as e:
+    except OSError as e:
         fatal(f"{e.strerror}: '{e.filename}'", extra={"event": {"outcome": "failure"}})
 
     if not state:
