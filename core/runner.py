@@ -159,9 +159,11 @@ def load_pipes(state, logger):
     Returns:
         List of (Pipe instance, config dict) tuples.
     """
+    import logging
     from importlib import import_module
 
     from . import Pipe, get_pipes
+    from .util import set_logging_format
 
     pipes = get_pipes(state)
 
@@ -173,6 +175,12 @@ def load_pipes(state, logger):
                 if path not in sys.path:
                     logger.debug(f"adding '{path}' to the search path", extra={"file": {"path": path}})
                     sys.path.append(path)
+            # applied here, before any pipe is validated or loaded, so startup
+            # diagnostics are already logged in the configured format
+            if (fmt := get_node(config, "logging.format", None)) and not getattr(
+                logging.getLogger("elastic.pipes"), "format_overridden", False
+            ):
+                set_logging_format(fmt)
 
     for name, config in pipes:
         if name in Pipe.__pipes__:

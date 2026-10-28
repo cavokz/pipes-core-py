@@ -131,6 +131,26 @@ def test_cli_log_format_default_does_not_override():
     assert all(isinstance(f, ecs_logging.StdlibFormatter) for f in _formatters())
 
 
+def test_load_pipes_applies_logging_format_before_loading_other_pipes():
+    # startup diagnostics (unknown module, missing pipe) must already use
+    # the configured format, so this is applied before any pipe is loaded
+    from core.runner import load_pipes
+
+    state = {"pipes": [{"elastic.pipes": {"logging": {"format": "json"}}}], "runtime": {"base-dir": "."}}
+    load_pipes(state, logging.getLogger("test_load_pipes_logger"))
+    assert all(isinstance(f, ecs_logging.StdlibFormatter) for f in _formatters())
+
+
+def test_load_pipes_does_not_override_cli_log_format():
+    setup_logging_format("text")("json")  # simulate --log-format json
+
+    from core.runner import load_pipes
+
+    state = {"pipes": [{"elastic.pipes": {"logging": {"format": "text"}}}], "runtime": {"base-dir": "."}}
+    load_pipes(state, logging.getLogger("test_load_pipes_logger"))
+    assert all(isinstance(f, ecs_logging.StdlibFormatter) for f in _formatters())
+
+
 def test_elastic_pipes_applies_logging_format_before_min_version_check():
     # format must switch before the min-version check can raise
     msg = r"current version is older than minimum version"
