@@ -30,7 +30,7 @@ from typing import List, Optional
 import typer
 from typing_extensions import Annotated
 
-from .util import fatal, get_node, setup_logging
+from .util import fatal, get_node, log_interrupt, setup_logging, setup_logging_format
 
 main = typer.Typer(pretty_exceptions_enable=False)
 
@@ -129,7 +129,7 @@ def configure_runtime(state, config_file, arguments, environment, logger):
 
     base_dir = str(base_dir.absolute())
     if base_dir not in sys.path:
-        logger.debug(f"adding '{base_dir}' to the search path")
+        logger.debug(f"adding '{base_dir}' to the search path", extra={"file": {"path": base_dir}})
         sys.path.append(base_dir)
 
     state.setdefault("runtime", {}).update(
@@ -159,9 +159,11 @@ def load_pipes(state, logger):
     Returns:
         List of (Pipe instance, config dict) tuples.
     """
+    import logging
     from importlib import import_module
 
     from . import Pipe, get_pipes
+    from .util import set_logging_format
 
     pipes = get_pipes(state)
 
@@ -171,8 +173,14 @@ def load_pipes(state, logger):
             for path in get_node(config, "search-path", None) or []:
                 path = str(Path(state["runtime"]["base-dir"]) / path)
                 if path not in sys.path:
-                    logger.debug(f"adding '{path}' to the search path")
+                    logger.debug(f"adding '{path}' to the search path", extra={"file": {"path": path}})
                     sys.path.append(path)
+            # applied here, before any pipe is validated or loaded, so startup
+            # diagnostics are already logged in the configured format
+            if (fmt := get_node(config, "logging.format", None)) and not getattr(
+                logging.getLogger("elastic.pipes"), "format_overridden", False
+            ):
+                set_logging_format(fmt)
 
     for name, config in pipes:
         if name in Pipe.__pipes__:
@@ -181,9 +189,12 @@ def load_pipes(state, logger):
         try:
             import_module(name)
         except ModuleNotFoundError as e:
-            fatal(f"cannot load pipe '{name}': cannot find module: '{e.name}'")
+            fatal(
+                f"cannot load pipe '{name}': cannot find module: '{e.name}'",
+                extra={"labels": {"pipe": name}, "event": {"outcome": "failure"}},
+            )
         if name not in Pipe.__pipes__:
-            fatal(f"module does not define a pipe: {name}")
+            fatal(f"module does not define a pipe: {name}", extra={"labels": {"pipe": name}, "event": {"outcome": "failure"}})
 
     return [(Pipe.find(name), config) for name, config in pipes]
 
@@ -237,11 +248,16 @@ def explain_everything(pipes, logger):
 
 
 @main.command()
+@log_interrupt
 def run(
-    config_file: typer.FileText,
+    config_file: Annotated[str, typer.Argument(help="YAML configuration file, or '-' for standard input.")],
     dry_run: Annotated[bool, typer.Option()] = False,
     explain: Annotated[bool, typer.Option(help="Describe what the script does.")] = False,
     log_level: Annotated[Optional[str], typer.Option(callback=setup_logging("INFO"))] = None,
+    log_format: Annotated[
+        Optional[str],
+        typer.Option(callback=setup_logging_format("text"), help="Log line format: 'text' or 'json' (ECS-compliant)."),
+    ] = None,
     arguments: Annotated[Optional[List[str]], typer.Option("--argument", "-a", help="Pass an argument to the Pipes runtime.")] = None,
 ):
     """Execute pipe sequence from configuration file.
@@ -254,6 +270,8 @@ def run(
         dry_run: If True, skip execution where pipes support it.
         explain: If True, show accepted arguments/environment and exit.
         log_level: Logging level (debug, info, warning, error, critical).
+        log_format: Log line format, "text" or "json" (ECS-compliant). Takes
+            priority over a 'logging.format' node in the elastic.pipes pipe config.
         arguments: Command-line arguments in "name=value" format.
     """
     import logging
@@ -264,13 +282,14 @@ def run(
     logger = logging.getLogger("elastic.pipes.core")
 
     try:
+        config_file = sys.stdin if config_file == "-" else open(config_file)  # noqa: SIM115 (kept open for the rest of the command)
         warn_interactive(config_file)
         state = deserialize_yaml(config_file) or {}
-    except FileNotFoundError as e:
-        fatal(f"{e.strerror}: '{e.filename}'")
+    except OSError as e:
+        fatal(f"{e.strerror}: '{e.filename}'", extra={"event": {"outcome": "failure"}})
 
     if not state:
-        fatal("invalid configuration, it's empty")
+        fatal("invalid configuration, it's empty", extra={"event": {"outcome": "failure"}})
 
     pipes = configure_runtime(state, config_file, arguments, os.environ, logger)
 
@@ -283,7 +302,7 @@ def run(
             pipe.check_config(config, logger)
         except Error as e:
             # use core logger here because the pipe logger is not properly configured yet
-            logger.critical(f"{pipe.name}: {e}")
+            logger.critical(f"{pipe.name}: {e}", extra={"labels": {"pipe": pipe.name}, "event": {"outcome": "failure"}})
             sys.exit(1)
 
     with ExitStack() as stack:
@@ -291,7 +310,7 @@ def run(
             try:
                 pipe.run(config, state, dry_run, logger, stack)
             except Error as e:
-                pipe.logger.critical(e)
+                pipe.logger.critical(e, extra={"event": {"outcome": "failure"}})
                 sys.exit(1)
 
 
